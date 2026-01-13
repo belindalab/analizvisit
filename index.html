@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ визитов МП Belinda Lab</title>
+    <style>
+        :root { --primary: #424B52; --accent: #DF3B20; --bg: #f5f5f5; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 0; font-size: 13px; line-height: 1.4; }
+        .container { max-width: 100%; margin: 0; padding: 0; }
+        
+        /* Header */
+        .header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 8px; }
+        .logo { height: 32px; }
+        h1 { font-size: 18px; color: var(--primary); font-weight: 600; }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 4px; margin-bottom: 8px; padding: 0 8px; border-bottom: 2px solid #ddd; }
+        .tab { padding: 8px 16px; background: transparent; border: none; cursor: pointer; font-weight: 600; color: #666; transition: all 0.2s; position: relative; }
+        .tab:hover { color: var(--primary); background: #f0f0f0; }
+        .tab.active { color: var(--accent); }
+        .tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--accent); }
+        
+        /* Content */
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Filters */
+        .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; padding: 8px; background: white; border: 1px solid #e0e0e0; }
+        .f-group { display: flex; flex-direction: column; gap: 3px; }
+        .f-group label { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; }
+        select, input[type="date"], input[type="month"] { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; transition: border 0.2s; }
+        select:focus, input:focus { outline: none; border-color: var(--accent); }
+        button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+        button:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 12px; background: white; }
+        th { background: var(--primary); color: white; font-weight: 600; text-align: left; padding: 8px; border: 1px solid #ddd; font-size: 11px; }
+        th:not(:first-child) { text-align: right; }
+        td { padding: 6px 8px; border: 1px solid #e0e0e0; }
+        td:not(:first-child) { text-align: right; }
+        tr:hover { background: #f9f9f9; transition: background 0.15s; }
+        .terr-row { background: var(--primary); color: white; font-weight: bold; }
+        .terr-row td { border: 1px solid var(--primary); }
+        
+        /* Calendar */
+        .calendar-table { font-size: 11px; }
+        .calendar-table th { padding: 6px 4px; text-align: right; position: sticky; left: 0; z-index: 2; }
+        .calendar-table th:first-child { position: sticky; left: 0; z-index: 3; min-width: 160px; text-align: left; }
+        .calendar-table td { padding: 4px; text-align: right; }
+        .calendar-table td:first-child { position: sticky; left: 0; background: white; z-index: 1; font-weight: 600; text-align: left; padding-left: 8px; }
+        .calendar-table tr:hover td:first-child { background: #f0f0f0; }
+        .visit-count { font-weight: 600; color: var(--accent); cursor: pointer; transition: background 0.15s; }
+        .visit-count:hover { background: #fff3cd !important; }
+        .visit-count.zero { color: #ccc; font-weight: normal; cursor: default; }
+        .weekend { background: #fff5f5 !important; }
+        .stat-col { background: #f8f9fa !important; font-weight: 600; color: var(--primary); }
+        .month-total { background: #f8f9fa !important; font-weight: 600; color: var(--primary); }
+        
+        /* Analytics */
+        .clickable-number { cursor: pointer; font-weight: 600; color: var(--accent); transition: background 0.15s; padding: 2px 4px; border-radius: 3px; display: inline-block; }
+        .clickable-number:hover { background: #fff5f5; }
+        
+        /* Loading & Empty */
+        .loading, .empty { text-align: center; padding: 30px; color: #999; }
+        .empty { border: 1px dashed #ddd; border-radius: 4px; background: white; }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow: auto; animation: fadeIn 0.2s; }
+        .modal-content { background: white; margin: 30px auto; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 85vh; overflow-y: auto; animation: slideDown 0.3s; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--accent); padding-bottom: 8px; }
+        .close-modal { font-size: 24px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; transition: color 0.2s; }
+        .close-modal:hover { color: var(--primary); }
+        .modal-visit-item { padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 8px; background: #f9f9f9; transition: box-shadow 0.2s; }
+        .modal-visit-item:hover { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        /* Expand icon */
+        .expand-icon { display: inline-block; margin-right: 6px; transition: transform 0.2s; font-size: 10px; }
+        .rep-row.expanded .expand-icon { transform: rotate(90deg); }
+        .doctors-details { display: none; background: #fafafa; }
+        .doctors-details.show { display: table-row; animation: fadeIn 0.2s; }
+        .doctors-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .doctors-table td { padding: 4px 6px; border: 1px solid #ddd; background: white; }
+        
+        /* Weekend selector */
+        .weekend-selector { display: none; margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #ddd; }
+        .weekend-days-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 4px; max-height: 150px; overflow-y: auto; padding: 8px; background: white; border-radius: 4px; }
+        .weekend-day-label { display: flex; align-items: center; gap: 4px; padding: 4px; cursor: pointer; border: 1px solid #e0e0e0; border-radius: 3px; font-size: 11px; transition: background 0.15s; }
+        .weekend-day-label:hover { background: #f0f0f0; }
+        
+        /* Stats */
+        .stats { display: flex; gap: 20px; margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px; }
+        .stats strong { color: var(--primary); }
+        .stats span { color: var(--accent); font-weight: 600; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <img src="https://belinda.tj/img/main-logo.svg" alt="Belinda" class="logo">
+        <h1>Анализ визитов МП Belinda Lab</h1>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('visits')">Визиты</button>
+        <button class="tab" onclick="switchTab('calendar')">Календарь визитов</button>
+        <button class="tab" onclick="switchTab('analytics')">Аналитика визитов</button>
+    </div>
+
+    <div id="tab-visits" class="tab-content active">
+        <div class="filters">
+            <div class="f-group">
+                <label>Дата</label>
+                <input type="date" id="dateFilter">
+            </div>
+            <div class="f-group">
+                <label>МП</label>
+                <select id="repFilterVisits"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Территория</label>
+                <select id="terrFilterVisits"><option value="">Все</option></select>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-primary" onclick="applySelectedDate()">Принять</button>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-secondary" onclick="setTodayDate()">Сегодня</button>
+            </div>
+        </div>
+        <div id="content" class="loading">Загрузка данных...</div>
+    </div>
+
+    <div id="tab-calendar" class="tab-content">
+        <div class="filters">
+            <div class="f-group">
+                <label>Месяц</label>
+                <input type="month" id="calendarMonth">
+            </div>
+            <div class="f-group">
+                <label>МП</label>
+                <select id="repFilterCalendar"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Территория</label>
+                <select id="terrFilterCalendar"><option value="">Все</option></select>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-primary" onclick="setCurrentMonth()">Текущий</button>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-secondary" onclick="showWeekendSelector()">Выходные</button>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-danger" onclick="clearWeekends()">Сброс</button>
+            </div>
+        </div>
+        <div id="weekendSelector" class="weekend-selector">
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--primary); font-size: 12px;">Отметьте выходные дни:</div>
+            <div id="weekendDaysList" class="weekend-days-list"></div>
+            <div style="margin-top: 8px;">
+                <button class="btn-primary" onclick="applyWeekends()">Применить</button>
+                <button class="btn-secondary" onclick="hideWeekendSelector()" style="margin-left: 6px;">Отмена</button>
+            </div>
+        </div>
+        <div id="calendarStats" class="stats">
+            <div><strong>Рабочих дней:</strong> <span id="workdaysCount">0</span></div>
+            <div><strong>Выходных дней:</strong> <span id="weekendsCount">0</span></div>
+        </div>
+        <div id="calendarContent" class="loading">Выберите месяц</div>
+    </div>
+
+    <div id="tab-analytics" class="tab-content">
+        <div class="filters">
+            <div class="f-group">
+                <label>Месяц</label>
+                <input type="month" id="analyticsMonth">
+            </div>
+            <div class="f-group">
+                <label>МП</label>
+                <select id="repFilterAnalytics"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Территория</label>
+                <select id="terrFilterAnalytics"><option value="">Все</option></select>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-primary" onclick="setCurrentMonthAnalytics()">Текущий</button>
+            </div>
+        </div>
+        <div id="analyticsContent" class="loading">Выберите месяц</div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="visitsModal" class="modal" onclick="if(event.target.id === 'visitsModal') closeVisitsModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2 id="modalTitle" style="margin: 0; color: var(--primary); font-size: 16px;">Детали визитов</h2>
+            <span class="close-modal" onclick="closeVisitsModal()">&times;</span>
+        </div>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwaeuMhQR5qcb4eS3IL0dLjPtvZ2CJHFqa45CFYWJl-jFO6gBgmcp11BHQjhgxw7_rriw/exec";
+    
+    let rawData = [];
+    let selectedWeekends = new Set();
+    let autoDetectedMonth = null;
+
+    const today = new Date();
+    const dateFilterEl = document.getElementById('dateFilter');
+    if (dateFilterEl) dateFilterEl.value = today.toISOString().split('T')[0];
+    
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    const monthValue = `${year}-${month}`;
+    const calendarMonthEl = document.getElementById('calendarMonth');
+    if (calendarMonthEl) calendarMonthEl.value = monthValue;
+    const analyticsMonthEl = document.getElementById('analyticsMonth');
+    if (analyticsMonthEl) analyticsMonthEl.value = monthValue;
+
+    async function fetchData() {
+        const container = document.getElementById('content');
+        container.innerHTML = '<div class="loading">Загрузка данных...</div>';
+        try {
+            const response = await fetch(API_URL);
+            rawData = await response.json();
+            fillFilters();
+            renderData();
+        } catch (e) {
+            container.innerHTML = `<div class="empty" style="color: red;">Ошибка: ${e.message}</div>`;
+        }
+    }
+
+    function fillFilters() {
+        const reps = [...new Set(rawData.map(item => item["Мед представитель"]))].filter(Boolean).sort();
+        const terrs = [...new Set(rawData.map(item => item["Территория"]))].filter(Boolean).sort();
+        
+        ['repFilterVisits', 'repFilterCalendar', 'repFilterAnalytics'].forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                reps.forEach(r => select.innerHTML += `<option value="${r}">${r}</option>`);
+            }
+        });
+        
+        ['terrFilterVisits', 'terrFilterCalendar', 'terrFilterAnalytics'].forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                terrs.forEach(t => select.innerHTML += `<option value="${t}">${t}</option>`);
+            }
+        });
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        
+        document.querySelectorAll('.tab').forEach(btn => {
+            if ((tabName === 'visits' && btn.textContent.trim() === 'Визиты') ||
+                (tabName === 'calendar' && btn.textContent.trim() === 'Календарь визитов') ||
+                (tabName === 'analytics' && btn.textContent.trim() === 'Аналитика визитов')) {
+                btn.classList.add('active');
+            }
+        });
+        
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        
+        if (tabName === 'calendar') {
+            const monthInput = document.getElementById('calendarMonth').value;
+            if (!monthInput) setCurrentMonth();
+            else { autoDetectWeekends(monthInput, false); renderCalendar(); }
+        } else if (tabName === 'analytics') {
+            const monthInput = document.getElementById('analyticsMonth').value;
+            if (!monthInput) setCurrentMonthAnalytics();
+            else renderAnalytics();
+        }
+    }
+
+    function setTodayDate() {
+        const dateFilterEl = document.getElementById('dateFilter');
+        if (dateFilterEl) dateFilterEl.value = today.toISOString().split('T')[0];
+        applySelectedDate();
+    }
+
+    function applySelectedDate() {
+        const dateFilterEl = document.getElementById('dateFilter');
+        if (dateFilterEl && !dateFilterEl.value) dateFilterEl.value = today.toISOString().split('T')[0];
+        renderData();
+    }
+
+    function renderData() {
+        const container = document.getElementById('content');
+        const fDate = document.getElementById('dateFilter').value;
+        const fRep = document.getElementById('repFilterVisits').value;
+        const fTerr = document.getElementById('terrFilterVisits').value;
+
+        const allRepsMap = {};
+        rawData.forEach(row => {
+            const rep = row["Мед представитель"];
+            const terr = row["Территория"] || "Прочие";
+            const group = row["Группа"] || "-";
+            if (!rep) return;
+            const key = `${terr}|${rep}`;
+            if (!allRepsMap[key]) {
+                allRepsMap[key] = { rep: rep, territory: terr, group: group, hasVisitsToday: false };
+            }
+        });
+
+        const filtered = rawData.filter(row => {
+            const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "];
+            return rowDate === fDate && (!fRep || row["Мед представитель"] === fRep) && (!fTerr || row["Территория"] === fTerr);
+        });
+
+        const report = {};
+        filtered.forEach(row => {
+            const t = row["Территория"] || "Прочие";
+            const m = row["Мед представитель"] || "Неизвестно";
+            const key = `${t}|${m}`;
+            if (allRepsMap[key]) allRepsMap[key].hasVisitsToday = true;
+            if (!report[t]) report[t] = {};
+            if (!report[t][m]) {
+                report[t][m] = { lpus: new Set(), docs: new Set(), doctorsList: [], group: row["Группа"] || "-" };
+            }
+            if (row["Аб ЛПУ"]) report[t][m].lpus.add(row["Аб ЛПУ"]);
+            if (row["Имя доктора"]) {
+                report[t][m].docs.add(row["Имя доктора"]);
+                report[t][m].doctorsList.push({
+                    doctor: row["Имя доктора"],
+                    lpuAbbr: row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || "-",
+                    lpuFull: row["ЛПУ"] || row["Название ЛПУ"] || row["Лпу"] || "-",
+                    spec: row["Специальность"] || row["Специальность врача"] || row["специальность"] || "-"
+                });
+            }
+        });
+
+        Object.values(allRepsMap).forEach(repInfo => {
+            if ((fRep && repInfo.rep !== fRep) || (fTerr && repInfo.territory !== fTerr)) return;
+            if (!repInfo.hasVisitsToday) {
+                const t = repInfo.territory;
+                const m = repInfo.rep;
+                if (!report[t]) report[t] = {};
+                if (!report[t][m]) {
+                    report[t][m] = { lpus: new Set(), docs: new Set(), doctorsList: [], group: repInfo.group, notFilled: true };
+                }
+            }
+        });
+
+        function getGroupSortOrder(group) {
+            const g = (group || "").toLowerCase();
+            if (g.includes("альфа")) return 1;
+            if (g.includes("бета")) return 2;
+            if (g.includes("гамма") || g.includes("gamma")) return 3;
+            if (g.includes("дельта") || g.includes("delta")) return 4;
+            return 999;
+        }
+
+        function sortReps(terr) {
+            return Object.keys(report[terr]).sort((a, b) => {
+                const orderA = getGroupSortOrder(report[terr][a].group);
+                const orderB = getGroupSortOrder(report[terr][b].group);
+                return orderA !== orderB ? orderA - orderB : a.localeCompare(b);
+            });
+        }
+
+        let html = '<table><thead><tr><th>Представитель</th><th>Группа</th><th>ЛПУ</th><th>Врачи</th><th>Статус</th></tr></thead><tbody>';
+        
+        Object.keys(report).sort().forEach(terr => {
+            html += `<tr class="terr-row"><td colspan="5">${terr}</td></tr>`;
+            sortReps(terr).forEach((rep, idx) => {
+                const d = report[terr][rep];
+                const status = d.notFilled ? '<span style="color: #DF3B20; font-weight: bold;">❌</span>' : '<span style="color: #2ecc71;">✓</span>';
+                const rowId = `rep-${terr}-${rep}-${idx}`.replace(/\s+/g, '-');
+                const hasDoctors = d.doctorsList && d.doctorsList.length > 0;
+                
+                html += `<tr class="rep-row ${hasDoctors ? '' : ''}" ${hasDoctors ? `onclick="toggleDoctors('${rowId}')"` : ''} ${d.notFilled ? 'style="background: #fff5f5;"' : ''} id="${rowId}">
+                    <td style="padding-left: 8px; text-align: left;">${hasDoctors ? '<span class="expand-icon">▶</span>' : ''}${rep}</td>
+                    <td style="text-align: right;">${d.group}</td>
+                    <td style="text-align: right;"><b>${d.lpus.size}</b></td>
+                    <td style="text-align: right;"><b>${d.docs.size}</b></td>
+                    <td style="text-align: right;">${status}</td>
+                </tr>`;
+                
+                if (hasDoctors) {
+                    const sortedDoctors = [...d.doctorsList].sort((a, b) => (a.lpuFull || a.lpuAbbr || '').localeCompare(b.lpuFull || b.lpuAbbr || '', 'ru'));
+                    let doctorsHtml = '<td colspan="5" style="text-align: left;"><div style="padding: 4px 8px;"><table class="doctors-table">';
+                    sortedDoctors.forEach(doc => {
+                        doctorsHtml += `<tr><td style="width: 30%; text-align: left;">${doc.lpuFull !== '-' ? doc.lpuFull : '-'}</td><td style="width: 15%; text-align: left;">${doc.lpuAbbr !== '-' && doc.lpuAbbr !== doc.lpuFull ? doc.lpuAbbr : '-'}</td><td style="width: 35%; text-align: left;">${doc.doctor || '-'}</td><td style="width: 20%; text-align: left;">${doc.spec !== '-' ? doc.spec : '-'}</td></tr>`;
+                    });
+                    doctorsHtml += '</table></div></td>';
+                    html += `<tr class="doctors-details" id="${rowId}-details">${doctorsHtml}</tr>`;
+                }
+            });
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function toggleDoctors(rowId) {
+        const row = document.getElementById(rowId);
+        const details = document.getElementById(rowId + '-details');
+        if (details) {
+            details.classList.toggle('show');
+            row.classList.toggle('expanded');
+        }
+    }
+
+    function setCurrentMonth() {
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        const monthValue = `${year}-${month}`;
+        const calendarMonthEl = document.getElementById('calendarMonth');
+        if (calendarMonthEl) calendarMonthEl.value = monthValue;
+        autoDetectedMonth = null;
+        autoDetectWeekends(monthValue, true);
+        renderCalendar();
+    }
+
+    function setCurrentMonthAnalytics() {
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        const monthValue = `${year}-${month}`;
+        const analyticsMonthEl = document.getElementById('analyticsMonth');
+        if (analyticsMonthEl) analyticsMonthEl.value = monthValue;
+        renderAnalytics();
+    }
+
+    function isWeekend(date) {
+        return selectedWeekends.has(date.toISOString().split('T')[0]);
+    }
+
+    function autoDetectWeekends(monthInput, force) {
+        if (!monthInput || (!force && autoDetectedMonth === monthInput)) return;
+        const [year, month] = monthInput.split('-').map(Number);
+        const monthStart = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        const monthEnd = new Date(year, month, 0).toISOString().split('T')[0];
+        Array.from(selectedWeekends).forEach(dateStr => {
+            if (dateStr >= monthStart && dateStr <= monthEnd) selectedWeekends.delete(dateStr);
+        });
+        const lastDay = new Date(year, month, 0);
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const date = new Date(year, month - 1, day);
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0 || (dayOfWeek === 6 && Math.ceil(day / 7) % 2 === 0)) {
+                selectedWeekends.add(date.toISOString().split('T')[0]);
+            }
+        }
+        autoDetectedMonth = monthInput;
+    }
+
+    function showWeekendSelector() {
+        const selector = document.getElementById('weekendSelector');
+        const monthInput = document.getElementById('calendarMonth').value;
+        if (!monthInput) { alert('Сначала выберите месяц'); return; }
+        autoDetectWeekends(monthInput, false);
+        const [year, month] = monthInput.split('-').map(Number);
+        const lastDay = new Date(year, month, 0);
+        let html = '';
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const date = new Date(year, month - 1, day);
+            const dateStr = date.toISOString().split('T')[0];
+            const dayName = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.getDay()];
+            const dateLabel = `${day}.${String(month).padStart(2, '0')} (${dayName})`;
+            const checked = selectedWeekends.has(dateStr);
+            html += `<label class="weekend-day-label" style="background: ${checked ? '#fff5f5' : 'white'};"><input type="checkbox" value="${dateStr}" ${checked ? 'checked' : ''} onchange="toggleWeekendDay('${dateStr}')"><span>${dateLabel}</span></label>`;
+        }
+        document.getElementById('weekendDaysList').innerHTML = html;
+        selector.style.display = 'block';
+    }
+
+    function hideWeekendSelector() {
+        document.getElementById('weekendSelector').style.display = 'none';
+    }
+
+    function toggleWeekendDay(dateStr) {
+        if (selectedWeekends.has(dateStr)) selectedWeekends.delete(dateStr);
+        else selectedWeekends.add(dateStr);
+        const checkbox = document.querySelector(`input[value="${dateStr}"]`);
+        const label = checkbox ? checkbox.closest('label') : null;
+        if (checkbox && label) {
+            checkbox.checked = selectedWeekends.has(dateStr);
+            label.style.background = selectedWeekends.has(dateStr) ? '#fff5f5' : 'white';
+        }
+    }
+
+    function applyWeekends() {
+        hideWeekendSelector();
+        renderCalendar();
+    }
+
+    function clearWeekends() {
+        const monthInput = document.getElementById('calendarMonth').value;
+        if (monthInput) {
+            const [year, month] = monthInput.split('-').map(Number);
+            const monthStart = new Date(year, month - 1, 1).toISOString().split('T')[0];
+            const monthEnd = new Date(year, month, 0).toISOString().split('T')[0];
+            Array.from(selectedWeekends).forEach(dateStr => {
+                if (dateStr >= monthStart && dateStr <= monthEnd) selectedWeekends.delete(dateStr);
+            });
+            autoDetectedMonth = null;
+        }
+        hideWeekendSelector();
+        renderCalendar();
+    }
+
+    function renderCalendar() {
+        const container = document.getElementById('calendarContent');
+        const monthInputEl = document.getElementById('calendarMonth');
+        if (!monthInputEl) return;
+        const monthInput = monthInputEl.value;
+        if (!monthInput || !rawData || rawData.length === 0) {
+            if (container) container.innerHTML = '<div class="empty">Загрузите данные и выберите месяц</div>';
+            return;
+        }
+        if (typeof autoDetectWeekends === 'function') autoDetectWeekends(monthInput, false);
+        const [year, month] = monthInput.split('-').map(Number);
+        const lastDay = new Date(year, month, 0);
+        const allDays = [];
+        for (let day = 1; day <= lastDay.getDate(); day++) allDays.push(new Date(year, month - 1, day));
+        const daysToShow = allDays.filter(date => !isWeekend(date));
+        document.getElementById('workdaysCount').textContent = daysToShow.length;
+        document.getElementById('weekendsCount').textContent = allDays.length - daysToShow.length;
+        const fRep = document.getElementById('repFilterCalendar')?.value || "";
+        const fTerr = document.getElementById('terrFilterCalendar')?.value || "";
+        const repsMap = {};
+        rawData.forEach(row => {
+            const rep = row["Мед представитель"];
+            const territory = row["Территория"] || "Прочие";
+            if ((fRep && rep !== fRep) || (fTerr && territory !== fTerr)) return;
+            if (rep && !repsMap[rep]) {
+                repsMap[rep] = { rep: rep, territory: territory, group: row["Группа"] || "-" };
+            }
+        });
+        const territoriesMap = {};
+        Object.values(repsMap).forEach(repInfo => {
+            const terr = repInfo.territory;
+            if (!territoriesMap[terr]) territoriesMap[terr] = [];
+            territoriesMap[terr].push(repInfo);
+        });
+        function getGroupSortOrder(group) {
+            const g = (group || "").toLowerCase();
+            if (g.includes("альфа")) return 1;
+            if (g.includes("бета")) return 2;
+            if (g.includes("гамма") || g.includes("gamma")) return 3;
+            if (g.includes("дельта") || g.includes("delta")) return 4;
+            return 999;
+        }
+        Object.keys(territoriesMap).forEach(terr => {
+            territoriesMap[terr].sort((a, b) => {
+                const orderA = getGroupSortOrder(a.group);
+                const orderB = getGroupSortOrder(b.group);
+                return orderA !== orderB ? orderA - orderB : a.rep.localeCompare(b.rep, 'ru');
+            });
+        });
+        const allReps = [];
+        Object.keys(territoriesMap).sort().forEach(terr => {
+            territoriesMap[terr].forEach(repInfo => allReps.push(repInfo));
+        });
+        const visitsData = {};
+        allReps.forEach(repInfo => {
+            const rep = repInfo.rep;
+            visitsData[rep] = {};
+            let total = 0, filledDays = 0, emptyDays = 0;
+            daysToShow.forEach(date => {
+                const dateStr = date.toISOString().split('T')[0];
+                const dateKey = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+                const visits = rawData.filter(row => {
+                    const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+                    return row["Мед представитель"] === rep && rowDate && (rowDate === dateStr || rowDate === dateKey || rowDate.startsWith(dateStr) || rowDate.includes(dateKey)) && (!fRep || row["Мед представитель"] === fRep) && (!fTerr || (row["Территория"] || "Прочие") === fTerr);
+                });
+                const count = visits.length;
+                visitsData[rep][dateStr] = count;
+                total += count;
+                if (count > 0) filledDays++; else emptyDays++;
+            });
+            visitsData[rep].total = total;
+            visitsData[rep].filledDays = filledDays;
+            visitsData[rep].emptyDays = emptyDays;
+            visitsData[rep].percentage = daysToShow.length > 0 ? Math.round((filledDays / daysToShow.length) * 100) : 0;
+        });
+        let html = '<div style="overflow-x: auto;"><table class="calendar-table"><thead><tr><th>МП</th>';
+        daysToShow.forEach(date => {
+            const dayName = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.getDay()];
+            const dateStr = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            html += `<th>${dateStr}<br><small>${dayName}</small></th>`;
+        });
+        html += '<th class="stat-col">Зап</th><th class="stat-col">Пусто</th><th class="stat-col">%</th><th class="stat-col">Итого</th></tr></thead><tbody>';
+        Object.keys(territoriesMap).sort().forEach(terr => {
+            html += `<tr class="terr-row"><td colspan="${daysToShow.length + 5}">${terr}</td></tr>`;
+            territoriesMap[terr].forEach(repInfo => {
+                const rep = repInfo.rep;
+                html += '<tr><td style="padding-left: 8px; text-align: left;">' + rep + '</td>';
+                daysToShow.forEach(date => {
+                    const dateStr = date.toISOString().split('T')[0];
+                    const count = visitsData[rep][dateStr] || 0;
+                    const className = count > 0 ? 'visit-count clickable' : 'visit-count zero';
+                    const clickHandler = count > 0 ? `onclick="showVisitsDetails('${rep}', '${dateStr}')"` : '';
+                    html += `<td class="${className}" style="text-align: right;" ${clickHandler}>${count}</td>`;
+                });
+                const filledDays = visitsData[rep].filledDays || 0;
+                const emptyDays = visitsData[rep].emptyDays || 0;
+                const percentage = visitsData[rep].percentage || 0;
+                let percentageClass = 'percentage';
+                if (percentage >= 80) percentageClass += ' high';
+                else if (percentage >= 50) percentageClass += ' medium';
+                else percentageClass += ' low';
+                html += `<td class="stat-col" style="text-align: right;">${filledDays}</td><td class="stat-col" style="text-align: right;">${emptyDays}</td><td class="stat-col ${percentageClass}" style="text-align: right;">${percentage}%</td><td class="month-total" style="text-align: right;">${visitsData[rep].total || 0}</td></tr>`;
+            });
+        });
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+        
+        document.getElementById('calendarMonth').onchange = renderCalendar;
+        document.getElementById('repFilterCalendar').onchange = renderCalendar;
+        document.getElementById('terrFilterCalendar').onchange = renderCalendar;
+    }
+
+    function renderAnalytics() {
+        const container = document.getElementById('analyticsContent');
+        const monthInputEl = document.getElementById('analyticsMonth');
+        if (!container || !monthInputEl) return;
+        const monthInput = monthInputEl.value;
+        if (!monthInput || !rawData || rawData.length === 0) {
+            container.innerHTML = '<div class="empty">Загрузите данные и выберите месяц</div>';
+            return;
+        }
+        const fRep = document.getElementById('repFilterAnalytics')?.value || "";
+        const fTerr = document.getElementById('terrFilterAnalytics')?.value || "";
+        const [year, month] = monthInput.split('-').map(Number);
+        const monthStart = new Date(year, month - 1, 1);
+        const monthEnd = new Date(year, month, 0);
+        const threeMonthsAgo = new Date(year, month - 4, 1);
+        const previousData = rawData.filter(row => {
+            const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+            if (!rowDate) return false;
+            let date = new Date(rowDate);
+            if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+            return !isNaN(date.getTime()) && date >= threeMonthsAgo && date < monthStart;
+        });
+        const monthData = rawData.filter(row => {
+            const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+            const rowRep = row["Мед представитель"] || "";
+            const rowTerr = row["Территория"] || "";
+            if ((fRep && rowRep !== fRep) || (fTerr && rowTerr !== fTerr)) return false;
+            if (!rowDate) return false;
+            let date = new Date(rowDate);
+            if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+            return !isNaN(date.getTime()) && date >= monthStart && date <= monthEnd;
+        });
+        const repsMap = {};
+        monthData.forEach(row => {
+            const rep = row["Мед представитель"];
+            if (rep && !repsMap[rep]) {
+                repsMap[rep] = { rep: rep, territory: row["Территория"] || "Прочие", group: row["Группа"] || "-" };
+            }
+        });
+        const territoriesMap = {};
+        Object.values(repsMap).forEach(repInfo => {
+            const terr = repInfo.territory;
+            if (!territoriesMap[terr]) territoriesMap[terr] = [];
+            territoriesMap[terr].push(repInfo);
+        });
+        function getGroupSortOrder(group) {
+            const g = (group || "").toLowerCase();
+            if (g.includes("альфа")) return 1;
+            if (g.includes("бета")) return 2;
+            if (g.includes("гамма") || g.includes("gamma")) return 3;
+            if (g.includes("дельта") || g.includes("delta")) return 4;
+            return 999;
+        }
+        Object.keys(territoriesMap).forEach(terr => {
+            territoriesMap[terr].sort((a, b) => {
+                const orderA = getGroupSortOrder(a.group);
+                const orderB = getGroupSortOrder(b.group);
+                return orderA !== orderB ? orderA - orderB : a.rep.localeCompare(b.rep, 'ru');
+            });
+        });
+        const analyticsData = {};
+        Object.values(repsMap).forEach(repInfo => {
+            const rep = repInfo.rep;
+            const repVisits = monthData.filter(row => (row["Мед представитель"] || "") === rep);
+            const daysWithVisits = new Set();
+            repVisits.forEach(row => {
+                const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+                if (rowDate) {
+                    let date = new Date(rowDate);
+                    if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+                    if (!isNaN(date.getTime())) daysWithVisits.add(date.toISOString().split('T')[0]);
+                }
+            });
+            const avgVisitsPerDay = daysWithVisits.size > 0 ? Math.round(repVisits.length / daysWithVisits.size) : 0;
+            const totalVisits = repVisits.length;
+            const doctorVisitsCount = {};
+            repVisits.forEach(row => {
+                const doctor = row["Имя доктора"] || row["Врач"] || "";
+                if (doctor) doctorVisitsCount[doctor] = (doctorVisitsCount[doctor] || 0) + 1;
+            });
+            const visitDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+            Object.values(doctorVisitsCount).forEach(count => {
+                if (count === 1) visitDistribution[1]++;
+                else if (count === 2) visitDistribution[2]++;
+                else if (count === 3) visitDistribution[3]++;
+                else if (count === 4) visitDistribution[4]++;
+                else if (count >= 5) visitDistribution[5]++;
+            });
+            const previousDoctors = new Set();
+            previousData.filter(row => (row["Мед представитель"] || "") === rep).forEach(row => {
+                const doctor = row["Имя доктора"] || row["Врач"] || "";
+                if (doctor) previousDoctors.add(doctor);
+            });
+            const currentDoctors = new Set(Object.keys(doctorVisitsCount));
+            const newDoctors = Array.from(currentDoctors).filter(doc => !previousDoctors.has(doc));
+            analyticsData[rep] = {
+                rep: rep, territory: repInfo.territory, group: repInfo.group,
+                avgVisitsPerDay: avgVisitsPerDay, totalVisits: totalVisits,
+                visitDistribution: visitDistribution, newDoctorsCount: newDoctors.length,
+                doctorVisitsCount: doctorVisitsCount, newDoctors: newDoctors, repVisits: repVisits
+            };
+        });
+        let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;"><thead><tr>';
+        html += '<th>МП</th><th>Группа</th><th>Ср/день</th><th>Всего</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5+</th><th>Новых</th></tr></thead><tbody>';
+        Object.keys(territoriesMap).sort().forEach(terr => {
+            html += `<tr class="terr-row"><td colspan="10">${terr}</td></tr>`;
+            territoriesMap[terr].forEach(repInfo => {
+                const rep = repInfo.rep;
+                const data = analyticsData[rep];
+                if (!data) return;
+                const repEncoded = encodeURIComponent(rep);
+                html += '<tr><td style="padding-left: 8px; text-align: left;">' + escapeHtml(rep) + '</td>';
+                html += '<td style="text-align: right;">' + escapeHtml(data.group) + '</td>';
+                html += '<td style="text-align: right; font-weight: 600; color: var(--accent);">' + data.avgVisitsPerDay + '</td>';
+                html += '<td style="text-align: right; font-weight: 600;">' + data.totalVisits + '</td>';
+                [1, 2, 3, 4, 5].forEach(count => {
+                    const num = data.visitDistribution[count];
+                    const clickable = num > 0 ? `class="clickable-number" onclick="showDoctorsByVisitCount('${repEncoded}', ${count})"` : '';
+                    html += `<td style="text-align: right;"><span ${clickable}>${num}</span></td>`;
+                });
+                const newDoctorsClickable = data.newDoctorsCount > 0 ? `class="clickable-number" onclick="showNewDoctors('${repEncoded}')"` : '';
+                html += `<td style="text-align: right; font-weight: 600; color: ${data.newDoctorsCount > 0 ? 'var(--accent)' : '#666'};"><span ${newDoctorsClickable}>${data.newDoctorsCount}</span></td></tr>`;
+            });
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        window.analyticsDataCache = analyticsData;
+        
+        document.getElementById('analyticsMonth').onchange = renderAnalytics;
+        document.getElementById('repFilterAnalytics').onchange = renderAnalytics;
+        document.getElementById('terrFilterAnalytics').onchange = renderAnalytics;
+    }
+
+    function showVisitsDetails(rep, dateStr) {
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const date = new Date(dateStr + 'T00:00:00');
+        const dateFormatted = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        modalTitle.textContent = `Визиты: ${rep} - ${dateFormatted}`;
+        const dateKey = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+        const visits = rawData.filter(row => {
+            const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+            return row["Мед представитель"] === rep && rowDate && (rowDate === dateStr || rowDate === dateKey || rowDate.startsWith(dateStr) || rowDate.includes(dateKey));
+        });
+        if (visits.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Визиты не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        const visitsByLPU = {};
+        visits.forEach(visit => {
+            const lpu = visit["Аб ЛПУ"] || visit["ЛПУ"] || "—";
+            if (!visitsByLPU[lpu]) visitsByLPU[lpu] = [];
+            visitsByLPU[lpu].push(visit);
+        });
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего визитов: ${visits.length}</strong></div>`;
+        Object.keys(visitsByLPU).sort().forEach(lpu => {
+            html += `<div style="margin-bottom: 15px;"><h3 style="color: var(--primary); margin-bottom: 8px; font-size: 14px;">${escapeHtml(lpu)}</h3>`;
+            visitsByLPU[lpu].forEach(visit => {
+                const doctor = visit["Имя доктора"] || visit["Врач"] || "—";
+                const spec = visit["Специальность"] || visit["специальность"] || "—";
+                html += `<div class="modal-visit-item"><div style="margin-bottom: 5px;"><strong>Врач:</strong> ${escapeHtml(doctor)} ${spec !== '—' ? `(${escapeHtml(spec)})` : ''}</div></div>`;
+            });
+            html += '</div>';
+        });
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showDoctorsByVisitCount(repEncoded, visitCount) {
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        if (!window.analyticsDataCache) { alert('Данные не загружены'); return; }
+        const rep = decodeURIComponent(repEncoded);
+        const data = window.analyticsDataCache[rep];
+        if (!data) { alert('Данные не найдены'); return; }
+        modalTitle.textContent = `Врачи: ${rep} - посещены ${visitCount} ${visitCount === 1 ? 'раз' : 'раза'}`;
+        const doctorsWithCount = Object.entries(data.doctorVisitsCount).filter(([doctor, count]) => visitCount === 5 ? count >= 5 : count === visitCount).map(([doctor, count]) => ({ doctor, count }));
+        if (doctorsWithCount.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Врачи не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        const visitsByDoctor = {};
+        data.repVisits.forEach(row => {
+            const doctor = row["Имя доктора"] || row["Врач"] || "";
+            if (doctor && doctorsWithCount.find(d => d.doctor === doctor)) {
+                if (!visitsByDoctor[doctor]) visitsByDoctor[doctor] = [];
+                visitsByDoctor[doctor].push(row);
+            }
+        });
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего врачей: ${doctorsWithCount.length}</strong></div>`;
+        Object.keys(visitsByDoctor).sort().forEach(doctor => {
+            const visits = visitsByDoctor[doctor];
+            const spec = visits[0]["Специальность"] || visits[0]["специальность"] || "—";
+            const lpu = visits[0]["Аб ЛПУ"] || visits[0]["ЛПУ"] || "—";
+            html += `<div class="modal-visit-item"><div style="margin-bottom: 6px;"><strong style="font-size: 14px; color: var(--primary);">${escapeHtml(doctor)}</strong> ${spec !== '—' ? `(${escapeHtml(spec)})` : ''} - ЛПУ: ${escapeHtml(lpu)}</div><div style="font-size: 12px; color: #666; margin-left: 16px;"><strong>Даты:</strong> `;
+            const dates = visits.map(v => {
+                const rowDate = v["Дата"] || v["Дата визита"] || v["Дата визита "] || "";
+                if (!rowDate) return "";
+                let date = new Date(rowDate);
+                if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+                return !isNaN(date.getTime()) ? date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : rowDate;
+            }).filter(Boolean).sort();
+            html += dates.join(', ') + '</div></div>';
+        });
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showNewDoctors(repEncoded) {
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        if (!window.analyticsDataCache) { alert('Данные не загружены'); return; }
+        const rep = decodeURIComponent(repEncoded);
+        const data = window.analyticsDataCache[rep];
+        if (!data) { alert('Данные не найдены'); return; }
+        modalTitle.textContent = `Новые врачи: ${rep}`;
+        if (data.newDoctors.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Новых врачей не найдено</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        const visitsByDoctor = {};
+        data.repVisits.forEach(row => {
+            const doctor = row["Имя доктора"] || row["Врач"] || "";
+            if (doctor && data.newDoctors.includes(doctor)) {
+                if (!visitsByDoctor[doctor]) visitsByDoctor[doctor] = [];
+                visitsByDoctor[doctor].push(row);
+            }
+        });
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего новых врачей: ${data.newDoctors.length}</strong></div>`;
+        Object.keys(visitsByDoctor).sort().forEach(doctor => {
+            const visits = visitsByDoctor[doctor];
+            const spec = visits[0]["Специальность"] || visits[0]["специальность"] || "—";
+            const lpu = visits[0]["Аб ЛПУ"] || visits[0]["ЛПУ"] || "—";
+            html += `<div class="modal-visit-item"><div style="margin-bottom: 6px;"><strong style="font-size: 14px; color: var(--primary);">${escapeHtml(doctor)}</strong> ${spec !== '—' ? `(${escapeHtml(spec)})` : ''} - ЛПУ: ${escapeHtml(lpu)}</div><div style="font-size: 12px; color: #666; margin-left: 16px;"><strong>Даты:</strong> `;
+            const dates = visits.map(v => {
+                const rowDate = v["Дата"] || v["Дата визита"] || v["Дата визита "] || "";
+                if (!rowDate) return "";
+                let date = new Date(rowDate);
+                if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+                return !isNaN(date.getTime()) ? date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : rowDate;
+            }).filter(Boolean).sort();
+            html += dates.join(', ') + '</div></div>';
+        });
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function closeVisitsModal() {
+        document.getElementById('visitsModal').style.display = 'none';
+    }
+
+    function escapeHtml(text) {
+        if (text == null) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    fetchData();
+</script>
+
+</body>
+</html>
