@@ -5,100 +5,444 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализ визитов МП Belinda Lab</title>
     <style>
-        :root { --primary: #424B52; --accent: #DF3B20; --bg: #f5f5f5; }
+        :root { 
+            /* Keep brand colors */
+            --primary: #424B52; 
+            --accent: #DF3B20; 
+            --bg: #f5f5f5;
+
+            /* Neutral UI tokens (do not change brand palette) */
+            --surface: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --border-strong: #d1d5db;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+            --shadow: 0 6px 18px rgba(0,0,0,0.08);
+            --radius: 12px;
+            --radius-sm: 10px;
+            --focus: 0 0 0 3px rgba(223, 59, 32, 0.18);
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 0; font-size: 13px; line-height: 1.4; }
-        .container { max-width: 100%; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; 
+            background: var(--bg); 
+            padding: 0; 
+            font-size: 13px; 
+            line-height: 1.5; 
+            color: var(--text);
+        }
+        .container { 
+            max-width: 1280px; 
+            margin: 0 auto; 
+            padding: 20px 16px 28px; 
+        }
         
         /* Header */
-        .header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 8px; }
+        .header { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            margin-bottom: 14px; 
+            padding: 14px 16px; 
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+        }
         .logo { height: 32px; }
-        h1 { font-size: 18px; color: var(--primary); font-weight: 600; }
+        h1 { 
+            font-size: 18px; 
+            color: var(--primary); 
+            font-weight: 600; 
+            margin: 0;
+        }
         
         /* Tabs */
-        .tabs { display: flex; gap: 4px; margin-bottom: 8px; padding: 0 8px; border-bottom: 2px solid #ddd; }
-        .tab { padding: 8px 16px; background: transparent; border: none; cursor: pointer; font-weight: 600; color: #666; transition: all 0.2s; position: relative; }
-        .tab:hover { color: var(--primary); background: #f0f0f0; }
-        .tab.active { color: var(--accent); }
-        .tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--accent); }
+        .tabs { 
+            display: flex; 
+            gap: 6px; 
+            margin-bottom: 14px; 
+            padding: 6px; 
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+        }
+        .tab { 
+            padding: 10px 14px; 
+            background: transparent; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: 600; 
+            color: var(--muted); 
+            transition: all 0.2s; 
+            position: relative; 
+            font-size: 13px;
+            border-radius: 10px;
+            line-height: 1;
+        }
+        .tab:hover { 
+            color: var(--primary); 
+            background: #f3f4f6; 
+        }
+        .tab.active { 
+            color: var(--accent); 
+            background: rgba(223, 59, 32, 0.10);
+        }
+        .tab.active::after { content: none; }
         
         /* Content */
-        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content { 
+            display: none; 
+            animation: fadeIn 0.3s; 
+        }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(-5px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
         
         /* Filters */
-        .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; padding: 8px; background: white; border: 1px solid #e0e0e0; }
-        .f-group { display: flex; flex-direction: column; gap: 3px; }
-        .f-group label { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; }
-        select, input[type="date"], input[type="month"] { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; transition: border 0.2s; }
-        select:focus, input:focus { outline: none; border-color: var(--accent); }
-        button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
-        button:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-secondary { background: #95a5a6; color: white; }
-        .btn-danger { background: #e74c3c; color: white; }
+        .filters { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+            gap: 12px; 
+            margin-bottom: 14px; 
+            padding: 14px; 
+            background: var(--surface); 
+            border: 1px solid var(--border); 
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            align-items: end;
+        }
+        .f-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 4px; 
+        }
+        .f-group label { 
+            font-size: 11px; 
+            font-weight: 600; 
+            color: #666; 
+            text-transform: uppercase; 
+        }
+        select, input[type="date"], input[type="month"] { 
+            height: 36px;
+            padding: 0 10px; 
+            border: 1px solid var(--border-strong); 
+            border-radius: var(--radius-sm); 
+            font-size: 13px; 
+            transition: border-color 0.2s, box-shadow 0.2s; 
+            width: 100%;
+            background: var(--surface);
+        }
+        select:focus, input:focus { 
+            outline: none; 
+            border-color: var(--accent); 
+            box-shadow: var(--focus);
+        }
+        button { 
+            height: 36px;
+            padding: 0 14px; 
+            border: none; 
+            border-radius: var(--radius-sm); 
+            cursor: pointer; 
+            font-size: 13px; 
+            font-weight: 600; 
+            transition: filter 0.15s, box-shadow 0.15s; 
+            white-space: nowrap;
+            box-shadow: var(--shadow-sm);
+        }
+        button:hover { 
+            filter: brightness(0.97); 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        button:focus-visible { outline: none; box-shadow: var(--focus); }
+        .btn-primary { 
+            background: var(--accent); 
+            color: white; 
+        }
+        .btn-secondary { 
+            background: #95a5a6; 
+            color: white; 
+        }
+        .btn-danger { 
+            background: #e74c3c; 
+            color: white; 
+        }
         
         /* Tables */
-        table { width: 100%; border-collapse: collapse; font-size: 12px; background: white; }
-        th { background: var(--primary); color: white; font-weight: 600; text-align: left; padding: 8px; border: 1px solid #ddd; font-size: 11px; }
+        table { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0;
+            font-size: 12px; 
+            background: var(--surface); 
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        th { 
+            background: var(--primary); 
+            color: white; 
+            font-weight: 600; 
+            text-align: left; 
+            padding: 10px 12px; 
+            border: none; 
+            font-size: 11px; 
+        }
         th:not(:first-child) { text-align: right; }
-        td { padding: 6px 8px; border: 1px solid #e0e0e0; }
+        td { 
+            padding: 8px 12px; 
+            border-top: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+        }
+        td:last-child { border-right: none; }
         td:not(:first-child) { text-align: right; }
-        tr:hover { background: #f9f9f9; transition: background 0.15s; }
-        .terr-row { background: var(--primary); color: white; font-weight: bold; }
-        .terr-row td { border: 1px solid var(--primary); }
+        tr:hover { 
+            background: rgba(66, 75, 82, 0.05); 
+            transition: background 0.15s; 
+        }
+        .terr-row { 
+            background: #eef0f2; 
+            color: var(--primary); 
+            font-weight: bold; 
+        }
+        .terr-row td { 
+            border-top: none;
+            border-right: none;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 12px;
+        }
         
         /* Calendar */
         .calendar-table { font-size: 11px; }
-        .calendar-table th { padding: 6px 4px; text-align: right; position: sticky; left: 0; z-index: 2; }
-        .calendar-table th:first-child { position: sticky; left: 0; z-index: 3; min-width: 160px; text-align: left; }
-        .calendar-table td { padding: 4px; text-align: right; }
-        .calendar-table td:first-child { position: sticky; left: 0; background: white; z-index: 1; font-weight: 600; text-align: left; padding-left: 8px; }
-        .calendar-table tr:hover td:first-child { background: #f0f0f0; }
-        .visit-count { font-weight: 600; color: var(--accent); cursor: pointer; transition: background 0.15s; }
-        .visit-count:hover { background: #fff3cd !important; }
-        .visit-count.zero { color: #ccc; font-weight: normal; cursor: default; }
+        .calendar-table th { 
+            padding: 8px 6px; 
+            text-align: right; 
+            position: sticky; 
+            left: 0; 
+            z-index: 2; 
+        }
+        .calendar-table th:first-child { 
+            position: sticky; 
+            left: 0; 
+            z-index: 3; 
+            min-width: 160px; 
+            text-align: left; 
+        }
+        .calendar-table td { 
+            padding: 6px 6px; 
+            text-align: right; 
+        }
+        .calendar-table td:first-child { 
+            position: sticky; 
+            left: 0; 
+            background: var(--surface); 
+            z-index: 1; 
+            font-weight: 600; 
+            text-align: left; 
+            padding-left: 12px; 
+        }
+        .calendar-table th:first-child,
+        .calendar-table td:first-child { box-shadow: 1px 0 0 var(--border); }
+        .calendar-table tr:hover td:first-child { 
+            background: #f0f0f0; 
+        }
+        .visit-count { 
+            font-weight: 600; 
+            color: var(--accent); 
+            cursor: pointer; 
+            transition: background 0.15s; 
+            border-radius: 6px;
+            padding: 2px 6px;
+            display: inline-block;
+        }
+        .visit-count:hover { 
+            background: rgba(223, 59, 32, 0.10) !important; 
+        }
+        .visit-count.zero { 
+            color: #ccc; 
+            font-weight: normal; 
+            cursor: default; 
+        }
         .weekend { background: #fff5f5 !important; }
-        .stat-col { background: #f8f9fa !important; font-weight: 600; color: var(--primary); }
-        .month-total { background: #f8f9fa !important; font-weight: 600; color: var(--primary); }
+        .stat-col { 
+            background: #f8f9fa !important; 
+            font-weight: 600; 
+            color: var(--primary); 
+        }
+        .month-total { 
+            background: #f8f9fa !important; 
+            font-weight: 600; 
+            color: var(--primary); 
+        }
         
         /* Analytics */
-        .clickable-number { cursor: pointer; font-weight: 600; color: var(--accent); transition: background 0.15s; padding: 2px 4px; border-radius: 3px; display: inline-block; }
-        .clickable-number:hover { background: #fff5f5; }
+        .clickable-number { 
+            cursor: pointer; 
+            font-weight: 600; 
+            color: var(--accent); 
+            transition: background 0.15s; 
+            padding: 2px 4px; 
+            border-radius: 3px; 
+            display: inline-block; 
+        }
+        .clickable-number:hover { 
+            background: rgba(223, 59, 32, 0.10); 
+        }
         
         /* Loading & Empty */
-        .loading, .empty { text-align: center; padding: 30px; color: #999; }
-        .empty { border: 1px dashed #ddd; border-radius: 4px; background: white; }
+        .loading, .empty { 
+            text-align: center; 
+            padding: 32px 16px; 
+            color: var(--muted); 
+        }
+        .empty { 
+            border: 1px dashed var(--border-strong); 
+            border-radius: var(--radius); 
+            background: var(--surface); 
+        }
         
         /* Modal */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow: auto; animation: fadeIn 0.2s; }
-        .modal-content { background: white; margin: 30px auto; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 85vh; overflow-y: auto; animation: slideDown 0.3s; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--accent); padding-bottom: 8px; }
-        .close-modal { font-size: 24px; font-weight: bold; color: #aaa; cursor: pointer; line-height: 1; transition: color 0.2s; }
-        .close-modal:hover { color: var(--primary); }
-        .modal-visit-item { padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 8px; background: #f9f9f9; transition: box-shadow 0.2s; }
-        .modal-visit-item:hover { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.55); 
+            overflow: auto; 
+            animation: fadeIn 0.2s; 
+        }
+        .modal-content { 
+            background: var(--surface); 
+            margin: 30px auto; 
+            padding: 20px; 
+            border-radius: var(--radius); 
+            max-width: 800px; 
+            max-height: 85vh; 
+            overflow-y: auto; 
+            animation: slideDown 0.3s; 
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        @keyframes slideDown { 
+            from { opacity: 0; transform: translateY(-20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .modal-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+            border-bottom: 2px solid var(--accent); 
+            padding-bottom: 8px; 
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 16px;
+        }
+        .close-modal { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #aaa; 
+            cursor: pointer; 
+            line-height: 1; 
+            transition: color 0.2s; 
+            padding: 0 6px;
+        }
+        .close-modal:hover { 
+            color: var(--primary); 
+        }
+        .modal-visit-item { 
+            padding: 12px; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 4px; 
+            margin-bottom: 8px; 
+            background: #f9f9f9; 
+            transition: box-shadow 0.2s; 
+        }
+        .modal-visit-item:hover { 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
         
         /* Expand icon */
-        .expand-icon { display: inline-block; margin-right: 6px; transition: transform 0.2s; font-size: 10px; }
+        .expand-icon { 
+            display: inline-block; 
+            margin-right: 6px; 
+            transition: transform 0.2s; 
+            font-size: 10px; 
+        }
         .rep-row.expanded .expand-icon { transform: rotate(90deg); }
+        .rep-row { cursor: pointer; }
         .doctors-details { display: none; background: #fafafa; }
         .doctors-details.show { display: table-row; animation: fadeIn 0.2s; }
         .doctors-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .doctors-table td { padding: 4px 6px; border: 1px solid #ddd; background: white; }
+        .doctors-table td { 
+            padding: 6px 8px; 
+            border: 1px solid #ddd; 
+            background: white; 
+        }
         
         /* Weekend selector */
-        .weekend-selector { display: none; margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; border: 1px solid #ddd; }
-        .weekend-days-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 4px; max-height: 150px; overflow-y: auto; padding: 8px; background: white; border-radius: 4px; }
-        .weekend-day-label { display: flex; align-items: center; gap: 4px; padding: 4px; cursor: pointer; border: 1px solid #e0e0e0; border-radius: 3px; font-size: 11px; transition: background 0.15s; }
-        .weekend-day-label:hover { background: #f0f0f0; }
+        .weekend-selector { 
+            display: none; 
+            margin-bottom: 16px; 
+            padding: 12px; 
+            background: #f8f9fa; 
+            border-radius: 4px; 
+            border: 1px solid #ddd; 
+        }
+        .weekend-days-list { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
+            gap: 6px; 
+            max-height: 150px; 
+            overflow-y: auto; 
+            padding: 12px; 
+            background: white; 
+            border-radius: 4px; 
+        }
+        .weekend-day-label { 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            padding: 6px; 
+            cursor: pointer; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 3px; 
+            font-size: 11px; 
+            transition: background 0.15s; 
+            background: white;
+        }
+        .weekend-day-label:hover { 
+            background: #f0f0f0; 
+        }
         
         /* Stats */
-        .stats { display: flex; gap: 20px; margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px; }
-        .stats strong { color: var(--primary); }
-        .stats span { color: var(--accent); font-weight: 600; font-size: 16px; }
+        .stats { 
+            display: flex; 
+            gap: 24px; 
+            margin-bottom: 16px; 
+            padding: 12px; 
+            background: #f8f9fa; 
+            border-radius: 4px; 
+            font-size: 12px; 
+        }
+        .stats strong { 
+            color: var(--primary); 
+        }
+        .stats span { 
+            color: var(--accent); 
+            font-weight: 600; 
+            font-size: 18px; 
+        }
     </style>
 </head>
 <body>
@@ -277,11 +621,15 @@
         document.getElementById(`tab-${tabName}`).classList.add('active');
         
         if (tabName === 'calendar') {
-            const monthInput = document.getElementById('calendarMonth').value;
+            const monthInputEl = document.getElementById('calendarMonth');
+            if (!monthInputEl) return;
+            const monthInput = monthInputEl.value;
             if (!monthInput) setCurrentMonth();
             else { autoDetectWeekends(monthInput, false); renderCalendar(); }
         } else if (tabName === 'analytics') {
-            const monthInput = document.getElementById('analyticsMonth').value;
+            const monthInputEl = document.getElementById('analyticsMonth');
+            if (!monthInputEl) return;
+            const monthInput = monthInputEl.value;
             if (!monthInput) setCurrentMonthAnalytics();
             else renderAnalytics();
         }
@@ -301,9 +649,14 @@
 
     function renderData() {
         const container = document.getElementById('content');
-        const fDate = document.getElementById('dateFilter').value;
-        const fRep = document.getElementById('repFilterVisits').value;
-        const fTerr = document.getElementById('terrFilterVisits').value;
+        if (!container) return;
+        const dateFilterEl = document.getElementById('dateFilter');
+        const repFilterEl = document.getElementById('repFilterVisits');
+        const terrFilterEl = document.getElementById('terrFilterVisits');
+        if (!dateFilterEl || !repFilterEl || !terrFilterEl) return;
+        const fDate = dateFilterEl.value;
+        const fRep = repFilterEl.value;
+        const fTerr = terrFilterEl.value;
 
         const allRepsMap = {};
         rawData.forEach(row => {
@@ -463,7 +816,9 @@
 
     function showWeekendSelector() {
         const selector = document.getElementById('weekendSelector');
-        const monthInput = document.getElementById('calendarMonth').value;
+        const monthInputEl = document.getElementById('calendarMonth');
+        if (!selector || !monthInputEl) return;
+        const monthInput = monthInputEl.value;
         if (!monthInput) { alert('Сначала выберите месяц'); return; }
         autoDetectWeekends(monthInput, false);
         const [year, month] = monthInput.split('-').map(Number);
@@ -502,7 +857,9 @@
     }
 
     function clearWeekends() {
-        const monthInput = document.getElementById('calendarMonth').value;
+        const monthInputEl = document.getElementById('calendarMonth');
+        if (!monthInputEl) return;
+        const monthInput = monthInputEl.value;
         if (monthInput) {
             const [year, month] = monthInput.split('-').map(Number);
             const monthStart = new Date(year, month - 1, 1).toISOString().split('T')[0];
@@ -525,14 +882,16 @@
             if (container) container.innerHTML = '<div class="empty">Загрузите данные и выберите месяц</div>';
             return;
         }
-        if (typeof autoDetectWeekends === 'function') autoDetectWeekends(monthInput, false);
+        autoDetectWeekends(monthInput, false);
         const [year, month] = monthInput.split('-').map(Number);
         const lastDay = new Date(year, month, 0);
         const allDays = [];
         for (let day = 1; day <= lastDay.getDate(); day++) allDays.push(new Date(year, month - 1, day));
         const daysToShow = allDays.filter(date => !isWeekend(date));
-        document.getElementById('workdaysCount').textContent = daysToShow.length;
-        document.getElementById('weekendsCount').textContent = allDays.length - daysToShow.length;
+        const workdaysCountEl = document.getElementById('workdaysCount');
+        const weekendsCountEl = document.getElementById('weekendsCount');
+        if (workdaysCountEl) workdaysCountEl.textContent = daysToShow.length;
+        if (weekendsCountEl) weekendsCountEl.textContent = allDays.length - daysToShow.length;
         const fRep = document.getElementById('repFilterCalendar')?.value || "";
         const fTerr = document.getElementById('terrFilterCalendar')?.value || "";
         const repsMap = {};
@@ -608,7 +967,7 @@
                     const count = visitsData[rep][dateStr] || 0;
                     const className = count > 0 ? 'visit-count clickable' : 'visit-count zero';
                     const clickHandler = count > 0 ? `onclick="showVisitsDetails('${rep}', '${dateStr}')"` : '';
-                    html += `<td class="${className}" style="text-align: right;" ${clickHandler}>${count}</td>`;
+                    html += `<td style="text-align: right;" ${clickHandler}><span class="${className}">${count}</span></td>`;
                 });
                 const filledDays = visitsData[rep].filledDays || 0;
                 const emptyDays = visitsData[rep].emptyDays || 0;
@@ -623,9 +982,12 @@
         html += '</tbody></table></div>';
         container.innerHTML = html;
         
-        document.getElementById('calendarMonth').onchange = renderCalendar;
-        document.getElementById('repFilterCalendar').onchange = renderCalendar;
-        document.getElementById('terrFilterCalendar').onchange = renderCalendar;
+        const calendarMonthEl = document.getElementById('calendarMonth');
+        const repFilterEl = document.getElementById('repFilterCalendar');
+        const terrFilterEl = document.getElementById('terrFilterCalendar');
+        if (calendarMonthEl) calendarMonthEl.addEventListener('change', renderCalendar);
+        if (repFilterEl) repFilterEl.addEventListener('change', renderCalendar);
+        if (terrFilterEl) terrFilterEl.addEventListener('change', renderCalendar);
     }
 
     function renderAnalytics() {
@@ -756,9 +1118,12 @@
         container.innerHTML = html;
         window.analyticsDataCache = analyticsData;
         
-        document.getElementById('analyticsMonth').onchange = renderAnalytics;
-        document.getElementById('repFilterAnalytics').onchange = renderAnalytics;
-        document.getElementById('terrFilterAnalytics').onchange = renderAnalytics;
+        const analyticsMonthEl = document.getElementById('analyticsMonth');
+        const repFilterAnalyticsEl = document.getElementById('repFilterAnalytics');
+        const terrFilterAnalyticsEl = document.getElementById('terrFilterAnalytics');
+        if (analyticsMonthEl) analyticsMonthEl.addEventListener('change', renderAnalytics);
+        if (repFilterAnalyticsEl) repFilterAnalyticsEl.addEventListener('change', renderAnalytics);
+        if (terrFilterAnalyticsEl) terrFilterAnalyticsEl.addEventListener('change', renderAnalytics);
     }
 
     function showVisitsDetails(rep, dateStr) {
