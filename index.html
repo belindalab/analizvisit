@@ -458,6 +458,7 @@
         <button class="tab" onclick="switchTab('calendar')">Календарь визитов</button>
         <button class="tab" onclick="switchTab('analytics')">Аналитика визитов</button>
         <button class="tab" onclick="switchTab('reports')">Отчеты</button>
+        <button class="tab" onclick="switchTab('planfact')">План/Факт</button>
     </div>
 
     <div id="tab-visits" class="tab-content active">
@@ -473,6 +474,14 @@
             <div class="f-group">
                 <label>Территория</label>
                 <select id="terrFilterVisits"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Роль</label>
+                <select id="roleFilterVisits"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Статус</label>
+                <select id="statusFilterVisits"><option value="">Все</option></select>
             </div>
             <div class="f-group" style="align-items: center;">
                 <button class="btn-primary" onclick="applySelectedDate()">Принять</button>
@@ -497,6 +506,14 @@
             <div class="f-group">
                 <label>Территория</label>
                 <select id="terrFilterCalendar"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Роль</label>
+                <select id="roleFilterCalendar"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Статус</label>
+                <select id="statusFilterCalendar"><option value="">Все</option></select>
             </div>
             <div class="f-group" style="align-items: center;">
                 <button class="btn-primary" onclick="setCurrentMonth()">Текущий</button>
@@ -537,6 +554,14 @@
                 <label>Территория</label>
                 <select id="terrFilterAnalytics"><option value="">Все</option></select>
             </div>
+            <div class="f-group">
+                <label>Роль</label>
+                <select id="roleFilterAnalytics"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Статус</label>
+                <select id="statusFilterAnalytics"><option value="">Все</option></select>
+            </div>
             <div class="f-group" style="align-items: center;">
                 <button class="btn-primary" onclick="setCurrentMonthAnalytics()">Текущий</button>
             </div>
@@ -558,11 +583,48 @@
                 <label>Территория</label>
                 <select id="terrFilterReports"><option value="">Все</option></select>
             </div>
+            <div class="f-group">
+                <label>Роль</label>
+                <select id="roleFilterReports"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Статус</label>
+                <select id="statusFilterReports"><option value="">Все</option></select>
+            </div>
             <div class="f-group" style="align-items: center;">
                 <button class="btn-primary" onclick="setCurrentMonthReports()">Текущий</button>
             </div>
         </div>
         <div id="reportsContent" class="loading">Выберите месяц</div>
+    </div>
+
+    <div id="tab-planfact" class="tab-content">
+        <div class="filters">
+            <div class="f-group">
+                <label>Месяц</label>
+                <input type="month" id="planfactMonth">
+            </div>
+            <div class="f-group">
+                <label>МП</label>
+                <select id="repFilterPlanFact"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Территория</label>
+                <select id="terrFilterPlanFact"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Роль</label>
+                <select id="roleFilterPlanFact"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Статус</label>
+                <select id="statusFilterPlanFact"><option value="">Все</option></select>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-primary" onclick="setCurrentMonthPlanFact()">Текущий</button>
+            </div>
+        </div>
+        <div id="planfactContent" class="loading">Выберите месяц</div>
     </div>
 </div>
 
@@ -578,9 +640,11 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwaeuMhQR5qcb4eS3IL0dLjPtvZ2CJHFqa45CFYWJl-jFO6gBgmcp11BHQjhgxw7_rriw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyw_tHQcmaozlrrHJBpKxpHrx70KaK0_pKiB1B9Riws_qJmFytlw_bJBNNPKAjjUBHKTw/exec";
     
     let rawData = [];
+    let employeesData = [];
+    let allEmployeesData = [];
     let selectedWeekends = new Set();
     let autoDetectedMonth = null;
     let reportsDataCache = { monthData: [], lpuVisits: {}, specialistVisits: {} };
@@ -598,35 +662,143 @@
     if (analyticsMonthEl) analyticsMonthEl.value = monthValue;
     const reportsMonthEl = document.getElementById('reportsMonth');
     if (reportsMonthEl) reportsMonthEl.value = monthValue;
+    const planfactMonthEl = document.getElementById('planfactMonth');
+    if (planfactMonthEl) planfactMonthEl.value = monthValue;
 
     async function fetchData() {
         const container = document.getElementById('content');
         container.innerHTML = '<div class="loading">Загрузка данных...</div>';
         try {
             const response = await fetch(API_URL);
-            rawData = await response.json();
+            const result = await response.json();
+            
+            // Обрабатываем новый формат данных
+            if (result.visits && result.employees) {
+                rawData = result.visits || [];
+                employeesData = result.employees || []; // Активные МП для фильтрации визитов
+                allEmployeesData = result.allEmployees || result.employees || []; // Все сотрудники для отображения
+                
+                // Если allEmployeesData пустой, используем employeesData
+                if (allEmployeesData.length === 0 && employeesData.length > 0) {
+                    allEmployeesData = employeesData;
+                }
+            } else if (Array.isArray(result)) {
+                // Старый формат (только массив визитов) - для обратной совместимости
+                rawData = result;
+                employeesData = [];
+                allEmployeesData = [];
+            } else {
+                throw new Error(result.error || 'Неверный формат данных');
+            }
+            
+            console.log('Загружено:', {
+                visits: rawData.length,
+                activeEmployees: employeesData.length,
+                allEmployees: allEmployeesData.length,
+                resultKeys: Object.keys(result)
+            });
+            
+            // Если allEmployeesData пустой, но есть employeesData, используем его
+            if ((!allEmployeesData || allEmployeesData.length === 0) && employeesData && employeesData.length > 0) {
+                allEmployeesData = employeesData;
+                console.log('Используем employeesData как allEmployeesData');
+            }
+            
+            // Фильтруем визиты только по активным сотрудникам с ролью "МП"
+            // (скрипт уже отфильтровал по статусу "Активный" и роли "МП")
+            if (employeesData.length > 0) {
+                const activeReps = new Set();
+                employeesData.forEach(emp => {
+                    // Пробуем разные варианты названий колонки с именем МП
+                    // Скрипт уже добавил имя в поле "МП", если колонка была без заголовка
+                    const name = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                                 emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                    if (name && name.toString().trim()) {
+                        activeReps.add(name.toString().trim());
+                    }
+                });
+                
+                rawData = rawData.filter(visit => {
+                    const repName = visit["Мед представитель"] || visit["Мед. представитель"] || 
+                                   visit["мед представитель"] || visit["Медицинский представитель"] || "";
+                    return activeReps.has(repName.toString().trim());
+                });
+            }
+            
             fillFilters();
             renderData();
         } catch (e) {
-            container.innerHTML = `<div class="empty" style="color: red;">Ошибка: ${e.message}</div>`;
+            console.error('Ошибка загрузки данных:', e);
+            container.innerHTML = `<div class="empty" style="color: red;">Ошибка загрузки данных: ${e.message}<br><small>Проверьте консоль браузера (F12) для подробностей</small></div>`;
         }
     }
 
     function fillFilters() {
-        const reps = [...new Set(rawData.map(item => item["Мед представитель"]))].filter(Boolean).sort();
-        const terrs = [...new Set(rawData.map(item => item["Территория"]))].filter(Boolean).sort();
+        // Используем ТОЛЬКО актуальные данные сотрудников из листа "Сотрудники"
+        let reps = [];
+        let terrs = [];
+        let roles = [];
+        let statuses = [];
         
-        ['repFilterVisits', 'repFilterCalendar', 'repFilterAnalytics', 'repFilterReports'].forEach(id => {
+        // Используем только allEmployeesData (актуальный список всех сотрудников)
+        const sourceData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : [];
+        
+        if (sourceData.length > 0) {
+            // Берем данные ТОЛЬКО из листа сотрудников (актуальный список)
+            reps = [...new Set(sourceData.map(emp => {
+                const name = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                            emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                return name.toString().trim();
+            }))].filter(Boolean).sort();
+            
+            terrs = [...new Set(sourceData.map(emp => {
+                const terr = emp["Область"] || emp["Область "] || emp["область"] || 
+                            emp["Территория"] || emp["Территория "] || emp["территория"] || "";
+                return terr.toString().trim();
+            }))].filter(Boolean).sort();
+            
+            roles = [...new Set(sourceData.map(emp => {
+                const role = emp["Роль"] || emp["роль"] || emp["Роль "] || "";
+                return role.toString().trim();
+            }))].filter(Boolean).sort();
+            
+            statuses = [...new Set(sourceData.map(emp => {
+                const status = emp["Статус"] || emp["статус"] || emp["Статус "] || "";
+                return status.toString().trim();
+            }))].filter(Boolean).sort();
+        }
+        
+        console.log('Заполнение фильтров из списка сотрудников:', { reps: reps.length, terrs: terrs.length, roles: roles.length, statuses: statuses.length });
+        
+        ['repFilterVisits', 'repFilterCalendar', 'repFilterAnalytics', 'repFilterReports', 'repFilterPlanFact'].forEach(id => {
             const select = document.getElementById(id);
             if (select) {
+                select.innerHTML = '<option value="">Все</option>';
                 reps.forEach(r => select.innerHTML += `<option value="${r}">${r}</option>`);
             }
         });
         
-        ['terrFilterVisits', 'terrFilterCalendar', 'terrFilterAnalytics', 'terrFilterReports'].forEach(id => {
+        ['terrFilterVisits', 'terrFilterCalendar', 'terrFilterAnalytics', 'terrFilterReports', 'terrFilterPlanFact'].forEach(id => {
             const select = document.getElementById(id);
             if (select) {
+                select.innerHTML = '<option value="">Все</option>';
                 terrs.forEach(t => select.innerHTML += `<option value="${t}">${t}</option>`);
+            }
+        });
+        
+        ['roleFilterVisits', 'roleFilterCalendar', 'roleFilterAnalytics', 'roleFilterReports', 'roleFilterPlanFact'].forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                select.innerHTML = '<option value="">Все</option>';
+                roles.forEach(r => select.innerHTML += `<option value="${r}">${r}</option>`);
+            }
+        });
+        
+        ['statusFilterVisits', 'statusFilterCalendar', 'statusFilterAnalytics', 'statusFilterReports', 'statusFilterPlanFact'].forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                select.innerHTML = '<option value="">Все</option>';
+                statuses.forEach(s => select.innerHTML += `<option value="${s}">${s}</option>`);
             }
         });
     }
@@ -639,7 +811,8 @@
             if ((tabName === 'visits' && btn.textContent.trim() === 'Визиты') ||
                 (tabName === 'calendar' && btn.textContent.trim() === 'Календарь визитов') ||
                 (tabName === 'analytics' && btn.textContent.trim() === 'Аналитика визитов') ||
-                (tabName === 'reports' && btn.textContent.trim() === 'Отчеты')) {
+                (tabName === 'reports' && btn.textContent.trim() === 'Отчеты') ||
+                (tabName === 'planfact' && btn.textContent.trim() === 'План/Факт')) {
                 btn.classList.add('active');
             }
         });
@@ -654,16 +827,29 @@
             else { autoDetectWeekends(monthInput, false); renderCalendar(); }
         } else if (tabName === 'analytics') {
             const monthInputEl = document.getElementById('analyticsMonth');
-            if (!monthInputEl) return;
+            if (!monthInputEl) {
+                console.error('analyticsMonth не найден');
+                return;
+            }
             const monthInput = monthInputEl.value;
-            if (!monthInput) setCurrentMonthAnalytics();
-            else renderAnalytics();
+            if (!monthInput) {
+                setCurrentMonthAnalytics();
+            } else {
+                // Вызываем сразу, без задержки
+                renderAnalytics();
+            }
         } else if (tabName === 'reports') {
             const monthInputEl = document.getElementById('reportsMonth');
             if (!monthInputEl) return;
             const monthInput = monthInputEl.value;
             if (!monthInput) setCurrentMonthReports();
             else renderReports();
+        } else if (tabName === 'planfact') {
+            const monthInputEl = document.getElementById('planfactMonth');
+            if (!monthInputEl) return;
+            const monthInput = monthInputEl.value;
+            if (!monthInput) setCurrentMonthPlanFact();
+            else renderPlanFact();
         }
     }
 
@@ -685,37 +871,142 @@
         const dateFilterEl = document.getElementById('dateFilter');
         const repFilterEl = document.getElementById('repFilterVisits');
         const terrFilterEl = document.getElementById('terrFilterVisits');
+        const roleFilterEl = document.getElementById('roleFilterVisits');
+        const statusFilterEl = document.getElementById('statusFilterVisits');
         if (!dateFilterEl || !repFilterEl || !terrFilterEl) return;
         const fDate = dateFilterEl.value;
         const fRep = repFilterEl.value;
         const fTerr = terrFilterEl.value;
+        const fRole = roleFilterEl?.value || "";
+        const fStatus = statusFilterEl?.value || "";
 
+        // Создаем карту сотрудников из актуальных данных сотрудников
+        const employeesMap = {};
+        const empSourceData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : 
+                             (employeesData && employeesData.length > 0) ? employeesData : [];
+        if (empSourceData.length > 0) {
+            empSourceData.forEach(emp => {
+                const repName = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                               emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (repName) {
+                    employeesMap[repName.toString().trim()] = {
+                        territory: emp["Область"] || emp["Область "] || emp["область"] || 
+                                   emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие",
+                        group: emp["Группа"] || emp["Группа "] || emp["группа"] || "-"
+                    };
+                }
+            });
+        }
+        
+        // Создаем список ТОЛЬКО из актуального списка сотрудников
         const allRepsMap = {};
-        rawData.forEach(row => {
-            const rep = row["Мед представитель"];
-            const terr = row["Территория"] || "Прочие";
-            const group = row["Группа"] || "-";
-            if (!rep) return;
-            const key = `${terr}|${rep}`;
-            if (!allRepsMap[key]) {
-                allRepsMap[key] = { rep: rep, territory: terr, group: group, hasVisitsToday: false };
-            }
-        });
+        const empListData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : [];
+        
+        // Добавляем ТОЛЬКО сотрудников из актуального списка
+        if (empListData.length > 0) {
+            empListData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (!rep) return;
+                
+                const role = emp["Роль"] || emp["роль"] || emp["Роль "] || "";
+                const status = emp["Статус"] || emp["статус"] || emp["Статус "] || "";
+                
+                // Фильтруем по роли и статусу
+                if (fRole && role.toString().trim() !== fRole) return;
+                if (fStatus && status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim()) return;
+                
+                const empInfo = employeesMap[rep.toString().trim()];
+                const terr = empInfo ? empInfo.territory : (emp["Область"] || emp["Область "] || emp["область"] || 
+                           emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие");
+                const group = empInfo ? empInfo.group : (emp["Группа"] || emp["Группа "] || emp["группа"] || "-");
+                
+                const key = `${terr}|${rep}`;
+                if (!allRepsMap[key]) {
+                    allRepsMap[key] = { rep: rep, territory: terr, group: group, hasVisitsToday: false };
+                }
+            });
+        }
 
+        // Создаем список актуальных МП из списка сотрудников для фильтрации
+        const validReps = new Set();
+        if (empListData.length > 0) {
+            empListData.forEach(emp => {
+                const name = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                            emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (name) validReps.add(name.toString().trim());
+            });
+        }
+        
+        // Создаем список актуальных территорий из списка сотрудников
+        const validTerrs = new Set();
+        if (empListData.length > 0) {
+            empListData.forEach(emp => {
+                const terr = emp["Область"] || emp["Область "] || emp["область"] || 
+                            emp["Территория"] || emp["Территория "] || emp["территория"] || "";
+                if (terr) validTerrs.add(terr.toString().trim());
+            });
+        }
+        
         const filtered = rawData.filter(row => {
             const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "];
-            return rowDate === fDate && (!fRep || row["Мед представитель"] === fRep) && (!fTerr || row["Территория"] === fTerr);
+            const repName = row["Мед представитель"] || row["Мед. представитель"] || 
+                          row["мед представитель"] || row["Медицинский представитель"] || "";
+            const rowTerr = row["Территория"] || row["территория"] || "";
+            
+            // Фильтруем только визиты от актуальных МП
+            if (validReps.size > 0 && !validReps.has(repName.toString().trim())) return false;
+            
+            // Фильтруем по дате и выбранным фильтрам
+            return rowDate === fDate && 
+                   (!fRep || repName === fRep) && 
+                   (!fTerr || (validTerrs.size > 0 ? validTerrs.has(rowTerr.toString().trim()) : rowTerr === fTerr));
         });
 
+        // Создаем список актуальных МП для проверки
+        const validRepsSet = new Set();
+        if (empListData.length > 0) {
+            empListData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (rep) validRepsSet.add(rep.toString().trim());
+            });
+        }
+        
+        // Создаем карту ролей и статусов для проверки фильтров
+        const employeesRoleStatusForVisits = {};
+        if (empListData.length > 0) {
+            empListData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (rep) {
+                    employeesRoleStatusForVisits[rep.toString().trim()] = {
+                        role: emp["Роль"] || emp["роль"] || emp["Роль "] || "",
+                        status: emp["Статус"] || emp["статус"] || emp["Статус "] || ""
+                    };
+                }
+            });
+        }
+        
         const report = {};
         filtered.forEach(row => {
-            const t = row["Территория"] || "Прочие";
-            const m = row["Мед представитель"] || "Неизвестно";
+            const m = row["Мед представитель"] || "";
+            // Пропускаем визиты от сотрудников, которых нет в актуальном списке
+            if (!validRepsSet.has(m.toString().trim())) return;
+            
+            // Фильтруем по роли и статусу
+            const empRoleStatus = employeesRoleStatusForVisits[m.toString().trim()];
+            if (fRole && (!empRoleStatus || empRoleStatus.role.toString().trim() !== fRole)) return;
+            if (fStatus && (!empRoleStatus || empRoleStatus.status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim())) return;
+            
+            const empInfo = employeesMap[m.toString().trim()];
+            const t = empInfo ? empInfo.territory : "Прочие";
+            const group = empInfo ? empInfo.group : "-";
             const key = `${t}|${m}`;
             if (allRepsMap[key]) allRepsMap[key].hasVisitsToday = true;
             if (!report[t]) report[t] = {};
             if (!report[t][m]) {
-                report[t][m] = { lpus: new Set(), docs: new Set(), doctorsList: [], group: row["Группа"] || "-" };
+                report[t][m] = { lpus: new Set(), docs: new Set(), doctorsList: [], group: group };
             }
             if (row["Аб ЛПУ"]) report[t][m].lpus.add(row["Аб ЛПУ"]);
             if (row["Имя доктора"]) {
@@ -730,6 +1021,11 @@
         });
 
         Object.values(allRepsMap).forEach(repInfo => {
+            // Проверяем фильтры по роли и статусу
+            const empRoleStatus = employeesRoleStatusForVisits[repInfo.rep.toString().trim()];
+            if (fRole && (!empRoleStatus || empRoleStatus.role.toString().trim() !== fRole)) return;
+            if (fStatus && (!empRoleStatus || empRoleStatus.status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim())) return;
+            
             if ((fRep && repInfo.rep !== fRep) || (fTerr && repInfo.territory !== fTerr)) return;
             if (!repInfo.hasVisitsToday) {
                 const t = repInfo.territory;
@@ -924,17 +1220,64 @@
         const weekendsCountEl = document.getElementById('weekendsCount');
         if (workdaysCountEl) workdaysCountEl.textContent = daysToShow.length;
         if (weekendsCountEl) weekendsCountEl.textContent = allDays.length - daysToShow.length;
+        // Создаем карту сотрудников из актуальных данных
+        const employeesMap = {};
+        const empMapData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : 
+                          (employeesData && employeesData.length > 0) ? employeesData : [];
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const repName = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                               emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (repName) {
+                    employeesMap[repName.toString().trim()] = {
+                        territory: emp["Область"] || emp["Область "] || emp["область"] || 
+                                   emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие",
+                        group: emp["Группа"] || emp["Группа "] || emp["группа"] || "-"
+                    };
+                }
+            });
+        }
+        
         const fRep = document.getElementById('repFilterCalendar')?.value || "";
         const fTerr = document.getElementById('terrFilterCalendar')?.value || "";
+        const fRole = document.getElementById('roleFilterCalendar')?.value || "";
+        const fStatus = document.getElementById('statusFilterCalendar')?.value || "";
+        
+        // Создаем список ТОЛЬКО из актуальных сотрудников (никаких данных из визитов)
         const repsMap = {};
-        rawData.forEach(row => {
-            const rep = row["Мед представитель"];
-            const territory = row["Территория"] || "Прочие";
-            if ((fRep && rep !== fRep) || (fTerr && territory !== fTerr)) return;
-            if (rep && !repsMap[rep]) {
-                repsMap[rep] = { rep: rep, territory: territory, group: row["Группа"] || "-" };
-            }
-        });
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (!rep) return;
+                
+                const role = emp["Роль"] || emp["роль"] || emp["Роль "] || "";
+                const status = emp["Статус"] || emp["статус"] || emp["Статус "] || "";
+                const empInfo = employeesMap[rep.toString().trim()];
+                const territory = empInfo ? empInfo.territory : (emp["Область"] || emp["Область "] || emp["область"] || 
+                           emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие");
+                const group = empInfo ? empInfo.group : (emp["Группа"] || emp["Группа "] || emp["группа"] || "-");
+                
+                // Фильтруем по всем критериям
+                if ((fRep && rep !== fRep) || (fTerr && territory !== fTerr)) return;
+                if (fRole && role.toString().trim() !== fRole) return;
+                if (fStatus && status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim()) return;
+                
+                if (rep && !repsMap[rep]) {
+                    repsMap[rep] = { rep: rep, territory: territory, group: group };
+                }
+            });
+        }
+        
+        // Фильтруем визиты только от актуальных МП
+        const validRepsForCalendar = new Set();
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const name = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                            emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (name) validRepsForCalendar.add(name.toString().trim());
+            });
+        }
         const territoriesMap = {};
         Object.values(repsMap).forEach(repInfo => {
             const terr = repInfo.territory;
@@ -969,8 +1312,12 @@
                 const dateStr = date.toISOString().split('T')[0];
                 const dateKey = `${date.getDate()}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
                 const visits = rawData.filter(row => {
+                    const rowRep = row["Мед представитель"] || "";
+                    // Фильтруем только визиты от актуальных МП
+                    if (validRepsForCalendar.size > 0 && !validRepsForCalendar.has(rowRep.toString().trim())) return false;
+                    
                     const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
-                    return row["Мед представитель"] === rep && rowDate && (rowDate === dateStr || rowDate === dateKey || rowDate.startsWith(dateStr) || rowDate.includes(dateKey)) && (!fRep || row["Мед представитель"] === fRep) && (!fTerr || (row["Территория"] || "Прочие") === fTerr);
+                    return rowRep === rep && rowDate && (rowDate === dateStr || rowDate === dateKey || rowDate.startsWith(dateStr) || rowDate.includes(dateKey)) && (!fRep || rowRep === fRep) && (!fTerr || (row["Территория"] || "Прочие") === fTerr);
                 });
                 const count = visits.length;
                 visitsData[rep][dateStr] = count;
@@ -1017,22 +1364,65 @@
         const calendarMonthEl = document.getElementById('calendarMonth');
         const repFilterEl = document.getElementById('repFilterCalendar');
         const terrFilterEl = document.getElementById('terrFilterCalendar');
+        const roleFilterEl = document.getElementById('roleFilterCalendar');
+        const statusFilterEl = document.getElementById('statusFilterCalendar');
         if (calendarMonthEl) calendarMonthEl.addEventListener('change', renderCalendar);
         if (repFilterEl) repFilterEl.addEventListener('change', renderCalendar);
         if (terrFilterEl) terrFilterEl.addEventListener('change', renderCalendar);
+        if (roleFilterEl) roleFilterEl.addEventListener('change', renderCalendar);
+        if (statusFilterEl) statusFilterEl.addEventListener('change', renderCalendar);
     }
 
     function renderAnalytics() {
         const container = document.getElementById('analyticsContent');
         const monthInputEl = document.getElementById('analyticsMonth');
-        if (!container || !monthInputEl) return;
-        const monthInput = monthInputEl.value;
-        if (!monthInput || !rawData || rawData.length === 0) {
-            container.innerHTML = '<div class="empty">Загрузите данные и выберите месяц</div>';
+        if (!container) {
+            console.error('renderAnalytics: container не найден');
             return;
         }
+        if (!monthInputEl) {
+            container.innerHTML = '<div class="empty">Ошибка: поле месяца не найдено</div>';
+            return;
+        }
+        let monthInput = monthInputEl.value;
+        if (!monthInput) {
+            // Автоматически устанавливаем текущий месяц, если не выбран
+            setCurrentMonthAnalytics();
+            monthInput = monthInputEl.value;
+            if (!monthInput) {
+                container.innerHTML = '<div class="empty">Выберите месяц</div>';
+                return;
+            }
+        }
+        if (!rawData || rawData.length === 0) {
+            container.innerHTML = '<div class="empty">Загрузите данные. Нажмите F5 для обновления страницы.</div>';
+            return;
+        }
+        
+        // Показываем загрузку
+        container.innerHTML = '<div class="loading">Загрузка аналитики...</div>';
+        // Создаем карту сотрудников из актуальных данных
+        const employeesMap = {};
+        const empMapData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : 
+                          (employeesData && employeesData.length > 0) ? employeesData : [];
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const repName = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                               emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (repName) {
+                    employeesMap[repName.toString().trim()] = {
+                        territory: emp["Область"] || emp["Область "] || emp["область"] || 
+                                   emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие",
+                        group: emp["Группа"] || emp["Группа "] || emp["группа"] || "-"
+                    };
+                }
+            });
+        }
+        
         const fRep = document.getElementById('repFilterAnalytics')?.value || "";
         const fTerr = document.getElementById('terrFilterAnalytics')?.value || "";
+        const fRole = document.getElementById('roleFilterAnalytics')?.value || "";
+        const fStatus = document.getElementById('statusFilterAnalytics')?.value || "";
         const [year, month] = monthInput.split('-').map(Number);
         const monthStart = new Date(year, month - 1, 1);
         const monthEnd = new Date(year, month, 0);
@@ -1044,23 +1434,67 @@
             if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
             return !isNaN(date.getTime()) && date >= threeMonthsAgo && date < monthStart;
         });
+        // Создаем список актуальных МП для фильтрации
+        const validRepsForAnalytics = new Set();
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const name = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                            emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (name) validRepsForAnalytics.add(name.toString().trim());
+            });
+        }
+        
         const monthData = rawData.filter(row => {
             const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
             const rowRep = row["Мед представитель"] || "";
-            const rowTerr = row["Территория"] || "";
+            
+            // Фильтруем только визиты от актуальных МП
+            if (validRepsForAnalytics.size > 0 && !validRepsForAnalytics.has(rowRep.toString().trim())) return false;
+            
+            const empInfo = employeesMap[rowRep.toString().trim()];
+            const rowTerr = empInfo ? empInfo.territory : (row["Территория"] || "");
             if ((fRep && rowRep !== fRep) || (fTerr && rowTerr !== fTerr)) return false;
             if (!rowDate) return false;
             let date = new Date(rowDate);
             if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
             return !isNaN(date.getTime()) && date >= monthStart && date <= monthEnd;
         });
+        
+        // Создаем список ТОЛЬКО из актуальных сотрудников (никаких данных из визитов)
         const repsMap = {};
-        monthData.forEach(row => {
-            const rep = row["Мед представитель"];
-            if (rep && !repsMap[rep]) {
-                repsMap[rep] = { rep: rep, territory: row["Территория"] || "Прочие", group: row["Группа"] || "-" };
-            }
-        });
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (!rep) return;
+                
+                const role = emp["Роль"] || emp["роль"] || emp["Роль "] || "";
+                const status = emp["Статус"] || emp["статус"] || emp["Статус "] || "";
+                const empInfo = employeesMap[rep.toString().trim()];
+                const territory = empInfo ? empInfo.territory : (emp["Область"] || emp["Область "] || emp["область"] || 
+                           emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие");
+                const group = empInfo ? empInfo.group : (emp["Группа"] || emp["Группа "] || emp["группа"] || "-");
+                
+                // Проверяем все фильтры
+                if ((fRep && rep !== fRep) || (fTerr && territory !== fTerr)) return;
+                if (fRole && role.toString().trim() !== fRole) return;
+                if (fStatus && status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim()) return;
+                
+                if (rep && !repsMap[rep]) {
+                    repsMap[rep] = { 
+                        rep: rep, 
+                        territory: territory, 
+                        group: group 
+                    };
+                }
+            });
+        }
+        // Проверяем, есть ли сотрудники для отображения
+        if (!repsMap || Object.keys(repsMap).length === 0) {
+            container.innerHTML = '<div class="empty">Нет сотрудников для отображения. Проверьте фильтры или убедитесь, что данные загружены.</div>';
+            return;
+        }
+        
         const territoriesMap = {};
         Object.values(repsMap).forEach(repInfo => {
             const terr = repInfo.territory;
@@ -1085,8 +1519,13 @@
         const analyticsData = {};
         Object.values(repsMap).forEach(repInfo => {
             const rep = repInfo.rep;
-            const repVisits = monthData.filter(row => (row["Мед представитель"] || "") === rep);
+            // Фильтруем визиты только для этого МП и только от актуальных МП
+            let repVisits = monthData.filter(row => {
+                const rowRep = row["Мед представитель"] || "";
+                return rowRep === rep && validRepsForAnalytics.has(rowRep.toString().trim());
+            });
             const daysWithVisits = new Set();
+            
             repVisits.forEach(row => {
                 const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
                 if (rowDate) {
@@ -1111,7 +1550,11 @@
                 else if (count >= 5) visitDistribution[5]++;
             });
             const previousDoctors = new Set();
-            previousData.filter(row => (row["Мед представитель"] || "") === rep).forEach(row => {
+            previousData.filter(row => {
+                const rowRep = row["Мед представитель"] || "";
+                // Фильтруем только визиты от актуальных МП
+                return rowRep === rep && validRepsForAnalytics.has(rowRep.toString().trim());
+            }).forEach(row => {
                 const doctor = row["Имя доктора"] || row["Врач"] || "";
                 if (doctor) previousDoctors.add(doctor);
             });
@@ -1124,6 +1567,12 @@
                 doctorVisitsCount: doctorVisitsCount, newDoctors: newDoctors, repVisits: repVisits
             };
         });
+        // Проверяем, есть ли данные для отображения
+        if (Object.keys(analyticsData).length === 0) {
+            container.innerHTML = '<div class="empty">Нет данных для выбранного периода. Попробуйте выбрать другой месяц.</div>';
+            return;
+        }
+        
         let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;"><thead><tr>';
         html += '<th>МП</th><th>Группа</th><th>Ср/день</th><th>Всего</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5+</th><th>Новых</th></tr></thead><tbody>';
         Object.keys(territoriesMap).sort().forEach(terr => {
@@ -1150,12 +1599,34 @@
         container.innerHTML = html;
         window.analyticsDataCache = analyticsData;
         
+        // Удаляем старые обработчики и добавляем новые
         const analyticsMonthEl = document.getElementById('analyticsMonth');
         const repFilterAnalyticsEl = document.getElementById('repFilterAnalytics');
         const terrFilterAnalyticsEl = document.getElementById('terrFilterAnalytics');
-        if (analyticsMonthEl) analyticsMonthEl.addEventListener('change', renderAnalytics);
-        if (repFilterAnalyticsEl) repFilterAnalyticsEl.addEventListener('change', renderAnalytics);
-        if (terrFilterAnalyticsEl) terrFilterAnalyticsEl.addEventListener('change', renderAnalytics);
+        
+        const roleFilterAnalyticsEl = document.getElementById('roleFilterAnalytics');
+        const statusFilterAnalyticsEl = document.getElementById('statusFilterAnalytics');
+        
+        if (analyticsMonthEl) {
+            analyticsMonthEl.removeEventListener('change', renderAnalytics);
+            analyticsMonthEl.addEventListener('change', renderAnalytics);
+        }
+        if (repFilterAnalyticsEl) {
+            repFilterAnalyticsEl.removeEventListener('change', renderAnalytics);
+            repFilterAnalyticsEl.addEventListener('change', renderAnalytics);
+        }
+        if (terrFilterAnalyticsEl) {
+            terrFilterAnalyticsEl.removeEventListener('change', renderAnalytics);
+            terrFilterAnalyticsEl.addEventListener('change', renderAnalytics);
+        }
+        if (roleFilterAnalyticsEl) {
+            roleFilterAnalyticsEl.removeEventListener('change', renderAnalytics);
+            roleFilterAnalyticsEl.addEventListener('change', renderAnalytics);
+        }
+        if (statusFilterAnalyticsEl) {
+            statusFilterAnalyticsEl.removeEventListener('change', renderAnalytics);
+            statusFilterAnalyticsEl.addEventListener('change', renderAnalytics);
+        }
     }
 
     function showVisitsDetails(rep, dateStr) {
@@ -1310,13 +1781,51 @@
         }
         const fRep = document.getElementById('repFilterReports')?.value || "";
         const fTerr = document.getElementById('terrFilterReports')?.value || "";
+        const fRole = document.getElementById('roleFilterReports')?.value || "";
+        const fStatus = document.getElementById('statusFilterReports')?.value || "";
         const [year, month] = monthInput.split('-').map(Number);
         const monthStart = new Date(year, month - 1, 1);
         const monthEnd = new Date(year, month, 0);
         
+        // Создаем список актуальных МП для фильтрации в отчетах
+        const validRepsForReports = new Set();
+        const reportsEmpData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : 
+                              (employeesData && employeesData.length > 0) ? employeesData : [];
+        if (reportsEmpData.length > 0) {
+            reportsEmpData.forEach(emp => {
+                const name = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                            emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (name) validRepsForReports.add(name.toString().trim());
+            });
+        }
+        
+        // Создаем карту сотрудников с ролями и статусами для фильтрации
+        const employeesRoleStatusMap = {};
+        if (reportsEmpData.length > 0) {
+            reportsEmpData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (rep) {
+                    employeesRoleStatusMap[rep.toString().trim()] = {
+                        role: emp["Роль"] || emp["роль"] || emp["Роль "] || "",
+                        status: emp["Статус"] || emp["статус"] || emp["Статус "] || ""
+                    };
+                }
+            });
+        }
+        
         const monthData = rawData.filter(row => {
             const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
             const rowRep = row["Мед представитель"] || "";
+            
+            // Фильтруем только визиты от актуальных МП
+            if (validRepsForReports.size > 0 && !validRepsForReports.has(rowRep.toString().trim())) return false;
+            
+            // Фильтруем по роли и статусу
+            const empRoleStatus = employeesRoleStatusMap[rowRep.toString().trim()];
+            if (fRole && (!empRoleStatus || empRoleStatus.role.toString().trim() !== fRole)) return false;
+            if (fStatus && (!empRoleStatus || empRoleStatus.status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim())) return false;
+            
             const rowTerr = row["Территория"] || "";
             if ((fRep && rowRep !== fRep) || (fTerr && rowTerr !== fTerr)) return false;
             if (!rowDate) return false;
@@ -1423,9 +1932,13 @@
         const reportsMonthEl = document.getElementById('reportsMonth');
         const repFilterReportsEl = document.getElementById('repFilterReports');
         const terrFilterReportsEl = document.getElementById('terrFilterReports');
+        const roleFilterReportsEl = document.getElementById('roleFilterReports');
+        const statusFilterReportsEl = document.getElementById('statusFilterReports');
         if (reportsMonthEl) reportsMonthEl.addEventListener('change', renderReports);
         if (repFilterReportsEl) repFilterReportsEl.addEventListener('change', renderReports);
         if (terrFilterReportsEl) terrFilterReportsEl.addEventListener('change', renderReports);
+        if (roleFilterReportsEl) roleFilterReportsEl.addEventListener('change', renderReports);
+        if (statusFilterReportsEl) statusFilterReportsEl.addEventListener('change', renderReports);
     }
 
     // Функции для детализации по ЛПУ
@@ -1681,6 +2194,235 @@
         });
         modalBody.innerHTML = html;
         modal.style.display = 'block';
+    }
+
+    function setCurrentMonthPlanFact() {
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        const monthValue = `${year}-${month}`;
+        const planfactMonthEl = document.getElementById('planfactMonth');
+        if (planfactMonthEl) planfactMonthEl.value = monthValue;
+        renderPlanFact();
+    }
+
+    function renderPlanFact() {
+        const container = document.getElementById('planfactContent');
+        const monthInputEl = document.getElementById('planfactMonth');
+        if (!container || !monthInputEl) return;
+        const monthInput = monthInputEl.value;
+        if (!monthInput) {
+            container.innerHTML = '<div class="empty">Выберите месяц</div>';
+            return;
+        }
+        if (!rawData || rawData.length === 0) {
+            container.innerHTML = '<div class="empty">Загрузите данные</div>';
+            return;
+        }
+        
+        const PLAN_VISITS_PER_MONTH = 288; // План визитов в месяц
+        const PLAN_VISITS_PER_DAY = 12; // План визитов в день (~288/24 рабочих дня)
+        
+        const fRep = document.getElementById('repFilterPlanFact')?.value || "";
+        const fTerr = document.getElementById('terrFilterPlanFact')?.value || "";
+        const fRole = document.getElementById('roleFilterPlanFact')?.value || "";
+        const fStatus = document.getElementById('statusFilterPlanFact')?.value || "";
+        const [year, month] = monthInput.split('-').map(Number);
+        const monthStart = new Date(year, month - 1, 1);
+        const monthEnd = new Date(year, month, 0);
+        
+        // Создаем карту сотрудников из актуальных данных
+        const employeesMap = {};
+        const empMapData = (allEmployeesData && allEmployeesData.length > 0) ? allEmployeesData : 
+                          (employeesData && employeesData.length > 0) ? employeesData : [];
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const repName = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                               emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (repName) {
+                    employeesMap[repName.toString().trim()] = {
+                        territory: emp["Область"] || emp["Область "] || emp["область"] || 
+                                   emp["Территория"] || emp["Территория "] || emp["территория"] || "Прочие",
+                        group: emp["Группа"] || emp["Группа "] || emp["группа"] || "-",
+                        role: emp["Роль"] || emp["роль"] || emp["Роль "] || "",
+                        status: emp["Статус"] || emp["статус"] || emp["Статус "] || ""
+                    };
+                }
+            });
+        }
+        
+        // Фильтруем визиты за месяц
+        const monthData = rawData.filter(row => {
+            const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+            const rowRep = row["Мед представитель"] || "";
+            
+            if (!rowDate) return false;
+            let date = new Date(rowDate);
+            if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+            if (isNaN(date.getTime())) return false;
+            
+            if (date < monthStart || date > monthEnd) return false;
+            
+            // Фильтруем по актуальным МП
+            const empInfo = employeesMap[rowRep.toString().trim()];
+            if (!empInfo) return false;
+            
+            // Фильтруем по выбранным фильтрам
+            if (fRep && rowRep !== fRep) return false;
+            if (fTerr && empInfo.territory !== fTerr) return false;
+            if (fRole && empInfo.role.toString().trim() !== fRole) return false;
+            if (fStatus && empInfo.status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim()) return false;
+            
+            return true;
+        });
+        
+        // Создаем список сотрудников для отображения
+        const repsMap = {};
+        if (empMapData.length > 0) {
+            empMapData.forEach(emp => {
+                const rep = emp["МП"] || emp["МП "] || emp["мед представитель"] || emp["Мед представитель"] || 
+                           emp["Мед. представитель"] || emp["Медицинский представитель"] || "";
+                if (!rep) return;
+                
+                const empInfo = employeesMap[rep.toString().trim()];
+                if (!empInfo) return;
+                
+                // Фильтруем по выбранным фильтрам
+                if (fRep && rep !== fRep) return;
+                if (fTerr && empInfo.territory !== fTerr) return;
+                if (fRole && empInfo.role.toString().trim() !== fRole) return;
+                if (fStatus && empInfo.status.toString().toLowerCase().trim() !== fStatus.toString().toLowerCase().trim()) return;
+                
+                if (rep && !repsMap[rep]) {
+                    repsMap[rep] = {
+                        rep: rep,
+                        territory: empInfo.territory,
+                        group: empInfo.group
+                    };
+                }
+            });
+        }
+        
+        // Подсчитываем факт для каждого МП
+        const planFactData = {};
+        Object.values(repsMap).forEach(repInfo => {
+            const rep = repInfo.rep;
+            const repVisits = monthData.filter(row => {
+                const rowRep = row["Мед представитель"] || "";
+                return rowRep === rep;
+            });
+            
+            // Подсчитываем рабочие дни (исключаем выходные)
+            const allDays = [];
+            for (let day = 1; day <= monthEnd.getDate(); day++) {
+                const date = new Date(year, month - 1, day);
+                allDays.push(date);
+            }
+            
+            // Подсчитываем дни с визитами
+            const daysWithVisits = new Set();
+            repVisits.forEach(row => {
+                const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+                if (rowDate) {
+                    let date = new Date(rowDate);
+                    if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+                    if (!isNaN(date.getTime())) {
+                        daysWithVisits.add(date.toISOString().split('T')[0]);
+                    }
+                }
+            });
+            
+            const factVisits = repVisits.length;
+            const factDays = daysWithVisits.size;
+            const avgPerDay = factDays > 0 ? Math.round(factVisits / factDays * 10) / 10 : 0;
+            const planCompletion = Math.round((factVisits / PLAN_VISITS_PER_MONTH) * 100);
+            const deviation = factVisits - PLAN_VISITS_PER_MONTH;
+            
+            planFactData[rep] = {
+                rep: rep,
+                territory: repInfo.territory,
+                group: repInfo.group,
+                plan: PLAN_VISITS_PER_MONTH,
+                fact: factVisits,
+                deviation: deviation,
+                planCompletion: planCompletion,
+                avgPerDay: avgPerDay,
+                factDays: factDays,
+                planDays: 24 // Примерно 24 рабочих дня в месяце
+            };
+        });
+        
+        // Группируем по территориям
+        const territoriesMap = {};
+        Object.values(repsMap).forEach(repInfo => {
+            const terr = repInfo.territory;
+            if (!territoriesMap[terr]) territoriesMap[terr] = [];
+            territoriesMap[terr].push(repInfo);
+        });
+        
+        // Сортируем по группам
+        function getGroupSortOrder(group) {
+            const g = (group || "").toLowerCase();
+            if (g.includes("альфа")) return 1;
+            if (g.includes("бета")) return 2;
+            if (g.includes("гамма") || g.includes("gamma")) return 3;
+            if (g.includes("дельта") || g.includes("delta")) return 4;
+            return 999;
+        }
+        
+        Object.keys(territoriesMap).forEach(terr => {
+            territoriesMap[terr].sort((a, b) => {
+                const orderA = getGroupSortOrder(a.group);
+                const orderB = getGroupSortOrder(b.group);
+                return orderA !== orderB ? orderA - orderB : a.rep.localeCompare(b.rep, 'ru');
+            });
+        });
+        
+        // Рендерим таблицу
+        let html = '<div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">';
+        html += `<strong>План на месяц:</strong> ${PLAN_VISITS_PER_MONTH} визитов | <strong>План в день:</strong> ~${PLAN_VISITS_PER_DAY} визитов`;
+        html += '</div>';
+        html += '<div style="overflow-x: auto;"><table><thead><tr>';
+        html += '<th>МП</th><th>Группа</th><th>План</th><th>Факт</th><th>Отклонение</th><th>% выполнения</th><th>Ср/день</th><th>Дней с визитами</th></tr></thead><tbody>';
+        
+        Object.keys(territoriesMap).sort().forEach(terr => {
+            html += `<tr class="terr-row"><td colspan="8">${escapeHtml(terr)}</td></tr>`;
+            territoriesMap[terr].forEach(repInfo => {
+                const rep = repInfo.rep;
+                const data = planFactData[rep];
+                if (!data) return;
+                
+                const deviationColor = data.deviation >= 0 ? '#2ecc71' : '#DF3B20';
+                const completionColor = data.planCompletion >= 100 ? '#2ecc71' : (data.planCompletion >= 80 ? '#f39c12' : '#DF3B20');
+                const avgColor = data.avgPerDay >= PLAN_VISITS_PER_DAY ? '#2ecc71' : (data.avgPerDay >= PLAN_VISITS_PER_DAY * 0.8 ? '#f39c12' : '#DF3B20');
+                
+                html += `<tr>
+                    <td style="text-align: left; padding-left: 8px;">${escapeHtml(data.rep)}</td>
+                    <td style="text-align: right;">${escapeHtml(data.group)}</td>
+                    <td style="text-align: right; font-weight: 600;">${data.plan}</td>
+                    <td style="text-align: right; font-weight: 600; color: var(--accent);">${data.fact}</td>
+                    <td style="text-align: right; font-weight: 600; color: ${deviationColor};">${data.deviation >= 0 ? '+' : ''}${data.deviation}</td>
+                    <td style="text-align: right; font-weight: 600; color: ${completionColor};">${data.planCompletion}%</td>
+                    <td style="text-align: right; font-weight: 600; color: ${avgColor};">${data.avgPerDay}</td>
+                    <td style="text-align: right;">${data.factDays}</td>
+                </tr>`;
+            });
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+        
+        // Добавляем обработчики событий
+        const planfactMonthEl = document.getElementById('planfactMonth');
+        const repFilterPlanFactEl = document.getElementById('repFilterPlanFact');
+        const terrFilterPlanFactEl = document.getElementById('terrFilterPlanFact');
+        const roleFilterPlanFactEl = document.getElementById('roleFilterPlanFact');
+        const statusFilterPlanFactEl = document.getElementById('statusFilterPlanFact');
+        if (planfactMonthEl) planfactMonthEl.addEventListener('change', renderPlanFact);
+        if (repFilterPlanFactEl) repFilterPlanFactEl.addEventListener('change', renderPlanFact);
+        if (terrFilterPlanFactEl) terrFilterPlanFactEl.addEventListener('change', renderPlanFact);
+        if (roleFilterPlanFactEl) roleFilterPlanFactEl.addEventListener('change', renderPlanFact);
+        if (statusFilterPlanFactEl) statusFilterPlanFactEl.addEventListener('change', renderPlanFact);
     }
 
     fetchData();
