@@ -457,6 +457,7 @@
         <button class="tab active" onclick="switchTab('visits')">Визиты</button>
         <button class="tab" onclick="switchTab('calendar')">Календарь визитов</button>
         <button class="tab" onclick="switchTab('analytics')">Аналитика визитов</button>
+        <button class="tab" onclick="switchTab('reports')">Отчеты</button>
     </div>
 
     <div id="tab-visits" class="tab-content active">
@@ -542,6 +543,27 @@
         </div>
         <div id="analyticsContent" class="loading">Выберите месяц</div>
     </div>
+
+    <div id="tab-reports" class="tab-content">
+        <div class="filters">
+            <div class="f-group">
+                <label>Месяц</label>
+                <input type="month" id="reportsMonth">
+            </div>
+            <div class="f-group">
+                <label>МП</label>
+                <select id="repFilterReports"><option value="">Все</option></select>
+            </div>
+            <div class="f-group">
+                <label>Территория</label>
+                <select id="terrFilterReports"><option value="">Все</option></select>
+            </div>
+            <div class="f-group" style="align-items: center;">
+                <button class="btn-primary" onclick="setCurrentMonthReports()">Текущий</button>
+            </div>
+        </div>
+        <div id="reportsContent" class="loading">Выберите месяц</div>
+    </div>
 </div>
 
 <!-- Modal -->
@@ -561,6 +583,7 @@
     let rawData = [];
     let selectedWeekends = new Set();
     let autoDetectedMonth = null;
+    let reportsDataCache = { monthData: [], lpuVisits: {}, specialistVisits: {} };
 
     const today = new Date();
     const dateFilterEl = document.getElementById('dateFilter');
@@ -573,6 +596,8 @@
     if (calendarMonthEl) calendarMonthEl.value = monthValue;
     const analyticsMonthEl = document.getElementById('analyticsMonth');
     if (analyticsMonthEl) analyticsMonthEl.value = monthValue;
+    const reportsMonthEl = document.getElementById('reportsMonth');
+    if (reportsMonthEl) reportsMonthEl.value = monthValue;
 
     async function fetchData() {
         const container = document.getElementById('content');
@@ -591,14 +616,14 @@
         const reps = [...new Set(rawData.map(item => item["Мед представитель"]))].filter(Boolean).sort();
         const terrs = [...new Set(rawData.map(item => item["Территория"]))].filter(Boolean).sort();
         
-        ['repFilterVisits', 'repFilterCalendar', 'repFilterAnalytics'].forEach(id => {
+        ['repFilterVisits', 'repFilterCalendar', 'repFilterAnalytics', 'repFilterReports'].forEach(id => {
             const select = document.getElementById(id);
             if (select) {
                 reps.forEach(r => select.innerHTML += `<option value="${r}">${r}</option>`);
             }
         });
         
-        ['terrFilterVisits', 'terrFilterCalendar', 'terrFilterAnalytics'].forEach(id => {
+        ['terrFilterVisits', 'terrFilterCalendar', 'terrFilterAnalytics', 'terrFilterReports'].forEach(id => {
             const select = document.getElementById(id);
             if (select) {
                 terrs.forEach(t => select.innerHTML += `<option value="${t}">${t}</option>`);
@@ -613,7 +638,8 @@
         document.querySelectorAll('.tab').forEach(btn => {
             if ((tabName === 'visits' && btn.textContent.trim() === 'Визиты') ||
                 (tabName === 'calendar' && btn.textContent.trim() === 'Календарь визитов') ||
-                (tabName === 'analytics' && btn.textContent.trim() === 'Аналитика визитов')) {
+                (tabName === 'analytics' && btn.textContent.trim() === 'Аналитика визитов') ||
+                (tabName === 'reports' && btn.textContent.trim() === 'Отчеты')) {
                 btn.classList.add('active');
             }
         });
@@ -632,6 +658,12 @@
             const monthInput = monthInputEl.value;
             if (!monthInput) setCurrentMonthAnalytics();
             else renderAnalytics();
+        } else if (tabName === 'reports') {
+            const monthInputEl = document.getElementById('reportsMonth');
+            if (!monthInputEl) return;
+            const monthInput = monthInputEl.value;
+            if (!monthInput) setCurrentMonthReports();
+            else renderReports();
         }
     }
 
@@ -1255,6 +1287,400 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function setCurrentMonthReports() {
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        const monthValue = `${year}-${month}`;
+        const reportsMonthEl = document.getElementById('reportsMonth');
+        if (reportsMonthEl) reportsMonthEl.value = monthValue;
+        renderReports();
+    }
+
+    function renderReports() {
+        const container = document.getElementById('reportsContent');
+        const monthInputEl = document.getElementById('reportsMonth');
+        if (!container || !monthInputEl) return;
+        const monthInput = monthInputEl.value;
+        if (!monthInput || !rawData || rawData.length === 0) {
+            container.innerHTML = '<div class="empty">Загрузите данные и выберите месяц</div>';
+            return;
+        }
+        const fRep = document.getElementById('repFilterReports')?.value || "";
+        const fTerr = document.getElementById('terrFilterReports')?.value || "";
+        const [year, month] = monthInput.split('-').map(Number);
+        const monthStart = new Date(year, month - 1, 1);
+        const monthEnd = new Date(year, month, 0);
+        
+        const monthData = rawData.filter(row => {
+            const rowDate = row["Дата"] || row["Дата визита"] || row["Дата визита "] || "";
+            const rowRep = row["Мед представитель"] || "";
+            const rowTerr = row["Территория"] || "";
+            if ((fRep && rowRep !== fRep) || (fTerr && rowTerr !== fTerr)) return false;
+            if (!rowDate) return false;
+            let date = new Date(rowDate);
+            if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+            return !isNaN(date.getTime()) && date >= monthStart && date <= monthEnd;
+        });
+
+        // Подсчет визитов по АБ ЛПУ
+        const lpuVisits = {};
+        monthData.forEach(row => {
+            const lpuAbbr = row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || row["ЛПУ"] || "—";
+            const lpuFull = row["ЛПУ"] || row["Название ЛПУ"] || row["Лпу"] || lpuAbbr;
+            const key = lpuAbbr !== "—" ? lpuAbbr : lpuFull;
+            if (!lpuVisits[key]) {
+                lpuVisits[key] = {
+                    abbr: lpuAbbr !== "—" ? lpuAbbr : "",
+                    full: lpuFull !== "—" ? lpuFull : key,
+                    count: 0,
+                    reps: new Set(),
+                    doctors: new Set()
+                };
+            }
+            lpuVisits[key].count++;
+            if (row["Мед представитель"]) lpuVisits[key].reps.add(row["Мед представитель"]);
+            if (row["Имя доктора"]) lpuVisits[key].doctors.add(row["Имя доктора"]);
+        });
+
+        // Подсчет визитов по специалистам
+        const specialistVisits = {};
+        monthData.forEach(row => {
+            const spec = row["Специальность"] || row["Специальность врача"] || row["специальность"] || "—";
+            const doctor = row["Имя доктора"] || row["Врач"] || "—";
+            const key = spec !== "—" ? spec : "Без специальности";
+            if (!specialistVisits[key]) {
+                specialistVisits[key] = {
+                    count: 0,
+                    doctors: new Set(),
+                    lpus: new Set(),
+                    reps: new Set()
+                };
+            }
+            specialistVisits[key].count++;
+            if (doctor !== "—") specialistVisits[key].doctors.add(doctor);
+            const lpuAbbr = row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || row["ЛПУ"] || "—";
+            if (lpuAbbr !== "—") specialistVisits[key].lpus.add(lpuAbbr);
+            if (row["Мед представитель"]) specialistVisits[key].reps.add(row["Мед представитель"]);
+        });
+
+        // Сохраняем данные для детализации
+        reportsDataCache = { monthData, lpuVisits, specialistVisits };
+
+        // Сортировка по количеству визитов (по убыванию)
+        const sortedLPUs = Object.entries(lpuVisits)
+            .sort((a, b) => b[1].count - a[1].count);
+        const sortedSpecialists = Object.entries(specialistVisits)
+            .sort((a, b) => b[1].count - a[1].count);
+
+        let html = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">';
+        
+        // Таблица по ЛПУ
+        html += '<div><h2 style="font-size: 16px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--accent);">Охват МП по АБ ЛПУ</h2>';
+        html += '<div style="overflow-x: auto;"><table><thead><tr><th>АБ ЛПУ</th><th>ЛПУ</th><th>Визитов</th><th>МП</th><th>Врачей</th></tr></thead><tbody>';
+        
+        sortedLPUs.forEach(([key, data]) => {
+            const keyEncoded = encodeURIComponent(key);
+            const visitsClickable = data.count > 0 ? `class="clickable-number" onclick="showLPUVisitsDetails('${keyEncoded}')"` : '';
+            const repsClickable = data.reps.size > 0 ? `class="clickable-number" onclick="showLPUMPs('${keyEncoded}')"` : '';
+            const doctorsClickable = data.doctors.size > 0 ? `class="clickable-number" onclick="showLPUDoctors('${keyEncoded}')"` : '';
+            html += `<tr>
+                <td style="text-align: left; font-weight: 600;">${escapeHtml(data.abbr || key)}</td>
+                <td style="text-align: left;">${escapeHtml(data.full)}</td>
+                <td style="text-align: right; font-weight: 600; color: var(--accent);"><span ${visitsClickable}>${data.count}</span></td>
+                <td style="text-align: right;"><span ${repsClickable}>${data.reps.size}</span></td>
+                <td style="text-align: right;"><span ${doctorsClickable}>${data.doctors.size}</span></td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table></div></div>';
+        
+        // Таблица по специалистам
+        html += '<div><h2 style="font-size: 16px; color: var(--primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--accent);">Часто посещаемые специалисты</h2>';
+        html += '<div style="overflow-x: auto;"><table><thead><tr><th>Специальность</th><th>Визитов</th><th>Врачей</th><th>ЛПУ</th><th>МП</th></tr></thead><tbody>';
+        
+        sortedSpecialists.forEach(([key, data]) => {
+            const keyEncoded = encodeURIComponent(key);
+            const visitsClickable = data.count > 0 ? `class="clickable-number" onclick="showSpecialistVisitsDetails('${keyEncoded}')"` : '';
+            const doctorsClickable = data.doctors.size > 0 ? `class="clickable-number" onclick="showSpecialistDoctors('${keyEncoded}')"` : '';
+            const lpusClickable = data.lpus.size > 0 ? `class="clickable-number" onclick="showSpecialistLPUs('${keyEncoded}')"` : '';
+            const repsClickable = data.reps.size > 0 ? `class="clickable-number" onclick="showSpecialistMPs('${keyEncoded}')"` : '';
+            html += `<tr>
+                <td style="text-align: left; font-weight: 600;">${escapeHtml(key)}</td>
+                <td style="text-align: right; font-weight: 600; color: var(--accent);"><span ${visitsClickable}>${data.count}</span></td>
+                <td style="text-align: right;"><span ${doctorsClickable}>${data.doctors.size}</span></td>
+                <td style="text-align: right;"><span ${lpusClickable}>${data.lpus.size}</span></td>
+                <td style="text-align: right;"><span ${repsClickable}>${data.reps.size}</span></td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table></div></div></div>';
+        
+        container.innerHTML = html;
+        
+        const reportsMonthEl = document.getElementById('reportsMonth');
+        const repFilterReportsEl = document.getElementById('repFilterReports');
+        const terrFilterReportsEl = document.getElementById('terrFilterReports');
+        if (reportsMonthEl) reportsMonthEl.addEventListener('change', renderReports);
+        if (repFilterReportsEl) repFilterReportsEl.addEventListener('change', renderReports);
+        if (terrFilterReportsEl) terrFilterReportsEl.addEventListener('change', renderReports);
+    }
+
+    // Функции для детализации по ЛПУ
+    function showLPUVisitsDetails(lpuKeyEncoded) {
+        const lpuKey = decodeURIComponent(lpuKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.lpuVisits[lpuKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        const lpuData = reportsDataCache.monthData.filter(row => {
+            const lpuAbbr = row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || row["ЛПУ"] || "—";
+            const lpuFull = row["ЛПУ"] || row["Название ЛПУ"] || row["Лпу"] || lpuAbbr;
+            const key = lpuAbbr !== "—" ? lpuAbbr : lpuFull;
+            return key === lpuKey;
+        });
+        
+        modalTitle.textContent = `Визиты в ЛПУ: ${escapeHtml(data.abbr || lpuKey)} - ${escapeHtml(data.full)}`;
+        
+        if (lpuData.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Визиты не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего визитов: ${lpuData.length}</strong></div>`;
+        html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;"><thead><tr><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">МП</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Врач</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Дата</th></tr></thead><tbody>';
+        
+        lpuData.forEach(visit => {
+            const rep = visit["Мед представитель"] || "—";
+            const doctor = visit["Имя доктора"] || visit["Врач"] || "—";
+            const spec = visit["Специальность"] || visit["специальность"] || "—";
+            const rowDate = visit["Дата"] || visit["Дата визита"] || visit["Дата визита "] || "";
+            let dateStr = rowDate;
+            if (rowDate) {
+                let date = new Date(rowDate);
+                if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+                if (!isNaN(date.getTime())) dateStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+            const doctorWithSpec = spec !== '—' ? `${escapeHtml(doctor)} (${escapeHtml(spec)})` : escapeHtml(doctor);
+            html += `<tr><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(rep)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${doctorWithSpec}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0; color: #666;">${escapeHtml(dateStr)}</td></tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showLPUMPs(lpuKeyEncoded) {
+        const lpuKey = decodeURIComponent(lpuKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.lpuVisits[lpuKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        modalTitle.textContent = `МП, посещавшие ЛПУ: ${escapeHtml(data.abbr || lpuKey)} - ${escapeHtml(data.full)}`;
+        
+        const repsList = Array.from(data.reps).sort();
+        if (repsList.length === 0) {
+            modalBody.innerHTML = '<div class="empty">МП не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего МП: ${repsList.length}</strong></div>`;
+        repsList.forEach(rep => {
+            const repVisits = reportsDataCache.monthData.filter(row => {
+                const lpuAbbr = row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || row["ЛПУ"] || "—";
+                const lpuFull = row["ЛПУ"] || row["Название ЛПУ"] || row["Лпу"] || lpuAbbr;
+                const key = lpuAbbr !== "—" ? lpuAbbr : lpuFull;
+                return key === lpuKey && row["Мед представитель"] === rep;
+            });
+            html += `<div class="modal-visit-item"><div style="margin-bottom: 5px;"><strong style="font-size: 14px; color: var(--primary);">${escapeHtml(rep)}</strong></div><div style="font-size: 12px; color: #666;">Визитов: ${repVisits.length}</div></div>`;
+        });
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showLPUDoctors(lpuKeyEncoded) {
+        const lpuKey = decodeURIComponent(lpuKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.lpuVisits[lpuKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        modalTitle.textContent = `Врачи в ЛПУ: ${escapeHtml(data.abbr || lpuKey)} - ${escapeHtml(data.full)}`;
+        
+        const doctorsList = Array.from(data.doctors).sort();
+        if (doctorsList.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Врачи не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего врачей: ${doctorsList.length}</strong></div>`;
+        html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;"><thead><tr><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Врач</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Специальность</th><th style="padding: 8px; text-align: right; background: var(--primary); color: white;">Визитов</th></tr></thead><tbody>';
+        
+        doctorsList.forEach(doctor => {
+            const doctorVisits = reportsDataCache.monthData.filter(row => {
+                const lpuAbbr = row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || row["ЛПУ"] || "—";
+                const lpuFull = row["ЛПУ"] || row["Название ЛПУ"] || row["Лпу"] || lpuAbbr;
+                const key = lpuAbbr !== "—" ? lpuAbbr : lpuFull;
+                return key === lpuKey && (row["Имя доктора"] || row["Врач"]) === doctor;
+            });
+            const spec = doctorVisits[0]?.["Специальность"] || doctorVisits[0]?.["специальность"] || "—";
+            html += `<tr><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(doctor)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${spec !== '—' ? escapeHtml(spec) : '—'}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: right;">${doctorVisits.length}</td></tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    // Функции для детализации по специалистам
+    function showSpecialistVisitsDetails(specKeyEncoded) {
+        const specKey = decodeURIComponent(specKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.specialistVisits[specKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        modalTitle.textContent = `Визиты к специалистам: ${escapeHtml(specKey)}`;
+        
+        const specData = reportsDataCache.monthData.filter(row => {
+            const spec = row["Специальность"] || row["Специальность врача"] || row["специальность"] || "—";
+            const key = spec !== "—" ? spec : "Без специальности";
+            return key === specKey;
+        });
+        
+        if (specData.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Визиты не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего визитов: ${specData.length}</strong></div>`;
+        html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;"><thead><tr><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">МП</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Врач</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">ЛПУ</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Дата</th></tr></thead><tbody>';
+        
+        specData.forEach(visit => {
+            const rep = visit["Мед представитель"] || "—";
+            const doctor = visit["Имя доктора"] || visit["Врач"] || "—";
+            const lpu = visit["Аб ЛПУ"] || visit["ЛПУ"] || "—";
+            const rowDate = visit["Дата"] || visit["Дата визита"] || visit["Дата визита "] || "";
+            let dateStr = rowDate;
+            if (rowDate) {
+                let date = new Date(rowDate);
+                if (isNaN(date.getTime())) date = new Date(rowDate.replace(/\./g, '/'));
+                if (!isNaN(date.getTime())) dateStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+            html += `<tr><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(rep)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(doctor)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(lpu)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0; color: #666;">${escapeHtml(dateStr)}</td></tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showSpecialistDoctors(specKeyEncoded) {
+        const specKey = decodeURIComponent(specKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.specialistVisits[specKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        modalTitle.textContent = `Врачи-специалисты: ${escapeHtml(specKey)}`;
+        
+        const doctorsList = Array.from(data.doctors).sort();
+        if (doctorsList.length === 0) {
+            modalBody.innerHTML = '<div class="empty">Врачи не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего врачей: ${doctorsList.length}</strong></div>`;
+        html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;"><thead><tr><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">Врач</th><th style="padding: 8px; text-align: left; background: var(--primary); color: white;">ЛПУ</th><th style="padding: 8px; text-align: right; background: var(--primary); color: white;">Визитов</th></tr></thead><tbody>';
+        
+        doctorsList.forEach(doctor => {
+            const doctorVisits = reportsDataCache.monthData.filter(row => {
+                const spec = row["Специальность"] || row["Специальность врача"] || row["специальность"] || "—";
+                const key = spec !== "—" ? spec : "Без специальности";
+                return key === specKey && (row["Имя доктора"] || row["Врач"]) === doctor;
+            });
+            const lpu = doctorVisits[0]?.["Аб ЛПУ"] || doctorVisits[0]?.["ЛПУ"] || "—";
+            html += `<tr><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(doctor)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">${escapeHtml(lpu)}</td><td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: right;">${doctorVisits.length}</td></tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showSpecialistLPUs(specKeyEncoded) {
+        const specKey = decodeURIComponent(specKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.specialistVisits[specKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        modalTitle.textContent = `ЛПУ со специалистами: ${escapeHtml(specKey)}`;
+        
+        const lpusList = Array.from(data.lpus).sort();
+        if (lpusList.length === 0) {
+            modalBody.innerHTML = '<div class="empty">ЛПУ не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего ЛПУ: ${lpusList.length}</strong></div>`;
+        lpusList.forEach(lpu => {
+            const lpuVisits = reportsDataCache.monthData.filter(row => {
+                const spec = row["Специальность"] || row["Специальность врача"] || row["специальность"] || "—";
+                const key = spec !== "—" ? spec : "Без специальности";
+                const rowLpu = row["Аб ЛПУ"] || row["Аб лпу"] || row["АБ ЛПУ"] || row["ЛПУ"] || "—";
+                return key === specKey && rowLpu === lpu;
+            });
+            html += `<div class="modal-visit-item"><div style="margin-bottom: 5px;"><strong style="font-size: 14px; color: var(--primary);">${escapeHtml(lpu)}</strong></div><div style="font-size: 12px; color: #666;">Визитов: ${lpuVisits.length}</div></div>`;
+        });
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
+    }
+
+    function showSpecialistMPs(specKeyEncoded) {
+        const specKey = decodeURIComponent(specKeyEncoded);
+        const modal = document.getElementById('visitsModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const data = reportsDataCache.specialistVisits[specKey];
+        if (!data) { alert('Данные не найдены'); return; }
+        
+        modalTitle.textContent = `МП, посещавшие специалистов: ${escapeHtml(specKey)}`;
+        
+        const repsList = Array.from(data.reps).sort();
+        if (repsList.length === 0) {
+            modalBody.innerHTML = '<div class="empty">МП не найдены</div>';
+            modal.style.display = 'block';
+            return;
+        }
+        
+        let html = `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;"><strong>Всего МП: ${repsList.length}</strong></div>`;
+        repsList.forEach(rep => {
+            const repVisits = reportsDataCache.monthData.filter(row => {
+                const spec = row["Специальность"] || row["Специальность врача"] || row["специальность"] || "—";
+                const key = spec !== "—" ? spec : "Без специальности";
+                return key === specKey && row["Мед представитель"] === rep;
+            });
+            html += `<div class="modal-visit-item"><div style="margin-bottom: 5px;"><strong style="font-size: 14px; color: var(--primary);">${escapeHtml(rep)}</strong></div><div style="font-size: 12px; color: #666;">Визитов: ${repVisits.length}</div></div>`;
+        });
+        modalBody.innerHTML = html;
+        modal.style.display = 'block';
     }
 
     fetchData();
